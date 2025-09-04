@@ -58,8 +58,8 @@ jobs:
         run: |
           dest=$(mktemp -d)
           unzip -q -d "$dest" B/build/*.zip
-          cd "$dest"/luanti-*-win*
-          wine bin/luanti.exe --version
+          cd "$dest"/eclipse-*-win*
+          wine bin/eclipse.exe --version
 
       - uses: actions/upload-artifact@v4
         with:
@@ -117,7 +117,7 @@ jobs:
       - name: Unittests
         # need this workaround for stdout to work
         run: |
-          $proc = start .\bin\Release\luanti.exe --run-unittests -NoNewWindow -Wait -PassThru
+          $proc = start .\bin\Release\eclipse.exe --run-unittests -NoNewWindow -Wait -PassThru
           exit $proc.ExitCode
         continue-on-error: true # FIXME!!
 

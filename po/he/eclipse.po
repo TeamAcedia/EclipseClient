@@ -1,21 +1,21 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the luanti package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Hebrew translations for eclipse package.
+# Copyright (C) 2025 THE eclipse'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the eclipse package.
+# <EMAIL@ADDRESS>, 2025.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: luanti\n"
+"Project-Id-Version: eclipse\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-11 19:59+0200\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"POT-Creation-Date: 2025-09-03 22:02-0500\n"
+"PO-Revision-Date: 2025-09-04 00:45-0500\n"
+"Last-Translator: <EMAIL@ADDRESS>\n"
+"Language-Team: Hebrew\n"
+"Language: he\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: builtin/client/chatcommands.lua
 msgid "Issued command: "
@@ -1189,11 +1189,11 @@ msgid "Host Server"
 msgstr ""
 
 #: builtin/mainmenu/tab_local.lua
-msgid "Select Mods"
+msgid "New"
 msgstr ""
 
 #: builtin/mainmenu/tab_local.lua
-msgid "New"
+msgid "Select Mods"
 msgstr ""
 
 #: builtin/mainmenu/tab_local.lua
@@ -1222,10 +1222,6 @@ msgstr ""
 
 #: builtin/mainmenu/tab_local.lua
 msgid "Play Game"
-msgstr ""
-
-#: builtin/mainmenu/tab_local.lua
-msgid "No world created or selected!"
 msgstr ""
 
 #: builtin/mainmenu/tab_local.lua
@@ -1784,11 +1780,11 @@ msgid "Profiler hidden"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "Left Button"
+msgid "Left Click"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "Right Button"
+msgid "Right Click"
 msgstr ""
 
 #. ~ Usually paired with the Pause key
@@ -1797,15 +1793,15 @@ msgid "Break Key"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "Middle Button"
+msgid "Middle Click"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "X Button 1"
+msgid "Mouse X1"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "X Button 2"
+msgid "Mouse X2"
 msgstr ""
 
 #: src/client/keycode.cpp
@@ -1813,7 +1809,7 @@ msgid "Backspace"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "Tab"
+msgid "Tab Key"
 msgstr ""
 
 #: src/client/keycode.cpp
@@ -1832,7 +1828,6 @@ msgstr ""
 msgid "Control Key"
 msgstr ""
 
-#. ~ Key name, common on Windows keyboards
 #: src/client/keycode.cpp
 msgid "Menu Key"
 msgstr ""
@@ -1859,11 +1854,11 @@ msgid "Page Down"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "End"
+msgid "End Key"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "Home"
+msgid "Home Key"
 msgstr ""
 
 #: src/client/keycode.cpp
@@ -1882,22 +1877,13 @@ msgstr ""
 msgid "Down Arrow"
 msgstr ""
 
-#. ~ Key name
 #: src/client/keycode.cpp
-msgid "Select"
+msgid "Select Key"
 msgstr ""
 
 #. ~ "Print screen" key
 #: src/client/keycode.cpp
 msgid "Print"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "Execute"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "Snapshot"
 msgstr ""
 
 #: src/client/keycode.cpp
@@ -1909,13 +1895,15 @@ msgid "Delete Key"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "Help"
+msgid "Help Key"
 msgstr ""
 
+#. ~ Name of key
 #: src/client/keycode.cpp
 msgid "Left Windows"
 msgstr ""
 
+#. ~ Name of key
 #: src/client/keycode.cpp
 msgid "Right Windows"
 msgstr ""
@@ -2013,47 +2001,7 @@ msgid "Right Menu"
 msgstr ""
 
 #: src/client/keycode.cpp
-msgid "IME Escape"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "IME Convert"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "IME Nonconvert"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "IME Accept"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "IME Mode Change"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "Apps"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "Sleep"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "Erase EOF"
-msgstr ""
-
-#: src/client/keycode.cpp
 msgid "Play"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "Zoom Key"
-msgstr ""
-
-#: src/client/keycode.cpp
-msgid "OEM Clear"
 msgstr ""
 
 #: src/client/minimap.cpp

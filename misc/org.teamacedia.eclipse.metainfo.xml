@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-    <id>org.luanti.luanti</id>
+    <id>org.teamacedia.eclipse</id>
     <provides>
         <id>net.minetest.minetest</id>
     </provides>
@@ -8,7 +8,7 @@
         <id>net.minetest.minetest</id>
     </replaces>
 
-    <name>Luanti</name>
+    <name>Eclipse</name>
     <summary>Block-based multiplayer game platform</summary>
     <summary xml:lang="de">Blockbasierte Mehrspieler-Spieleplattform</summary>
     <summary xml:lang="fr">Plate-forme de jeu multijoueurs à base de blocs</summary>
@@ -16,8 +16,8 @@
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>LGPL-2.1+ AND CC-BY-SA-3.0 AND MIT AND Apache-2.0</project_license>
 
-    <developer id="org.luanti">
-        <name>Luanti Team</name>
+    <developer id="org.teamacedia">
+        <name>Team Acedia</name>
     </developer>
 
     <supports>
@@ -125,7 +125,7 @@
         </ul>
     </description>
 
-    <launchable type="desktop-id">org.luanti.luanti.desktop</launchable>
+    <launchable type="desktop-id">org.teamacedia.eclipse.desktop</launchable>
     <screenshots>
         <screenshot type="default">
             <image>https://www.luanti.org/media/gallery/1.jpg</image>
@@ -138,7 +138,7 @@
         </screenshot>
     </screenshots>
 
-    <icon type="stock">luanti</icon>
+    <icon type="stock">eclipse</icon>
 
     <categories>
         <category>Game</category>
@@ -166,7 +166,7 @@
     <url type="contribute">https://www.luanti.org/get-involved</url>
 
     <provides>
-        <binary>luanti</binary>
+        <binary>eclipse</binary>
     </provides>
 
     <translation type="gettext">luanti</translation>
