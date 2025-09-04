@@ -128,7 +128,7 @@ Version scheme
 We use `major.minor-parent_major.parent_minor.parent_patch`.
 
 - Major is incremented when the release contains major changes, Minor is then set to 0.
-- Minor is incremented when the release contains minor features,
+- Minor is incremented when the release contains minor features.
 
 - Parent_Major is set to whatever the Major is on the parent project Luanti.
 - Parent_Minor is set to whatever the Minor is on the parent project Luanti.
