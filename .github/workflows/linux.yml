@@ -55,7 +55,7 @@ jobs:
 
       - name: Unittest
         run: |
-          ./bin/luanti --run-unittests
+          ./bin/eclipse --run-unittests
 
       # Do this here because we have ASan and error paths are sensitive to dangling pointers
       - name: Test error cases
@@ -86,7 +86,7 @@ jobs:
           mkdir nowrite
           chmod a-w nowrite
           cd nowrite
-          ../bin/luanti --run-unittests
+          ../bin/eclipse --run-unittests
 
   # Older clang version (should be close to our minimum supported version)
   clang_11:
@@ -109,7 +109,7 @@ jobs:
 
       - name: Test
         run: |
-          ./bin/luanti --run-unittests
+          ./bin/eclipse --run-unittests
 
   # Current clang version
   clang_18:
@@ -130,7 +130,7 @@ jobs:
 
       - name: Test
         run: |
-          ./bin/luanti --run-unittests
+          ./bin/eclipse --run-unittests
 
       - name: Integration test + devtest
         run: |
@@ -160,4 +160,4 @@ jobs:
 
       - name: Test
         run: |
-          ./bin/luantiserver --run-unittests
+          ./bin/eclipseserver --run-unittests

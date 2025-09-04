@@ -3,4 +3,4 @@
 
 #pragma once
 
-#define VERSION_GITHASH "@VERSION_GITHASH@"
+#define VERSION_GITHASH ""

@@ -12,6 +12,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(GCC_MINIMUM_VERSION "7.5")
 set(CLANG_MINIMUM_VERSION "7.0.1")
 
+set(ECLIPSE_VERSION_MAJOR 1)
+set(ECLIPSE_VERSION_MINOR 0)
+
 # You should not need to edit these manually, use util/bump_version.sh
 set(VERSION_MAJOR 5)
 set(VERSION_MINOR 15)
@@ -19,7 +22,7 @@ set(VERSION_PATCH 0)
 set(VERSION_EXTRA "" CACHE STRING "Stuff to append to version string")
 
 # Change to false for releases
-set(DEVELOPMENT_BUILD TRUE)
+set(DEVELOPMENT_BUILD FALSE)
 
 set(VERSION_STRING "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 if(VERSION_EXTRA)
@@ -32,6 +35,8 @@ if (CMAKE_BUILD_TYPE STREQUAL Debug)
 	# Append "-debug" to version string
 	set(VERSION_STRING "${VERSION_STRING}-debug")
 endif()
+
+set(ECLIPSE_VERSION_STRING "${ECLIPSE_VERSION_MAJOR}.${ECLIPSE_VERSION_MINOR}-${VERSION_STRING}")
 
 # Configuration options
 set(BUILD_CLIENT TRUE CACHE BOOL "Build client")
@@ -265,21 +270,21 @@ install(FILES "minetest.conf.example" DESTINATION "${EXAMPLE_CONF_DIR}")
 
 if(UNIX AND NOT APPLE)
 	install(FILES "doc/luanti.6" "doc/luantiserver.6" DESTINATION "${MANDIR}/man6")
-	install(FILES "misc/org.luanti.luanti.desktop" DESTINATION "${XDG_APPS_DIR}")
-	install(FILES "misc/org.luanti.luanti.metainfo.xml" DESTINATION "${METAINFODIR}")
+	install(FILES "misc/org.teamacedia.eclipse.desktop" DESTINATION "${XDG_APPS_DIR}")
+	install(FILES "misc/org.teamacedia.eclipse.metainfo.xml" DESTINATION "${METAINFODIR}")
 	install(FILES "misc/luanti.svg" DESTINATION "${ICONDIR}/hicolor/scalable/apps")
-	install(FILES "misc/luanti-xorg-icon-128.png"
+	install(FILES "misc/eclipse-xorg-icon-128.png"
 		DESTINATION "${ICONDIR}/hicolor/128x128/apps"
-		RENAME "luanti.png")
+		RENAME "eclipse.png")
 endif()
 
 if(APPLE)
-	install(FILES "misc/luanti-icon.icns" DESTINATION "${SHAREDIR}")
+	install(FILES "misc/eclipse-icon.icns" DESTINATION "${SHAREDIR}")
 	install(FILES "${CMAKE_BINARY_DIR}/Info.plist" DESTINATION "${BUNDLE_PATH}/Contents")
 endif()
 
 if(CMAKE_GENERATOR STREQUAL "Xcode")
-	set(client_RESOURCES "${CMAKE_SOURCE_DIR}/misc/luanti-icon.icns")
+	set(client_RESOURCES "${CMAKE_SOURCE_DIR}/misc/eclipse-icon.icns")
 endif()
 
 # Library pack
@@ -323,9 +328,9 @@ if(WIN32)
 
 	if(RUN_IN_PLACE)
 		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-			set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-win64")
+			set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${ECLIPSE_VERSION_STRING}-win64")
 		else()
-			set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-win32")
+			set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${ECLIPSE_VERSION_STRING}-win32")
 		endif()
 
 		set(CPACK_GENERATOR ZIP)
@@ -338,7 +343,7 @@ if(WIN32)
 		set(CPACK_CREATE_DESKTOP_LINKS ${PROJECT_NAME})
 		set(CPACK_PACKAGING_INSTALL_PREFIX "/${PROJECT_NAME_CAPITALIZED}")
 
-		set(CPACK_WIX_PRODUCT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/misc/luanti-icon.ico")
+		set(CPACK_WIX_PRODUCT_ICON "${CMAKE_CURRENT_SOURCE_DIR}/misc/eclipse-icon.ico")
 		# Supported languages can be found at
 		# http://wixtoolset.org/documentation/manual/v3/wixui/wixui_localization.html
 		#set(CPACK_WIX_CULTURES "ar-SA,bg-BG,ca-ES,hr-HR,cs-CZ,da-DK,nl-NL,en-US,et-EE,fi-FI,fr-FR,de-DE")
