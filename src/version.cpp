@@ -9,15 +9,11 @@
 	#include "cmake_config_githash.h"
 #endif
 
-#ifndef VERSION_GITHASH
-	#define VERSION_GITHASH VERSION_STRING
-#endif
-
 #define STRINGIFY(x) #x
 #define STR(x) STRINGIFY(x)
 
 const char *g_version_string = VERSION_STRING;
-const char *g_version_hash = VERSION_GITHASH;
+const char *g_version_hash = "";
 const char *g_build_info =
 	"BUILD_TYPE=" BUILD_TYPE "\n"
 	"RUN_IN_PLACE=" STR(RUN_IN_PLACE) "\n"
