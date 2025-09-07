@@ -36,7 +36,7 @@ read_versions() {
 	fi
 	CURRENT_VERSION="$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH"
 
-	echo "Current Luanti version: $CURRENT_VERSION"
+	echo "Current Eclipse version: $CURRENT_VERSION"
 }
 
 # Retrieves protocol version from header
@@ -148,7 +148,7 @@ back_to_devel() {
 # Start of main logic:
 #######################
 
-# Switch to top luanti directory
+# Switch to top eclipse directory
 cd ${0%/*}/..
 
 # Determine old versions
