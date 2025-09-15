@@ -28,6 +28,11 @@ execute_process(
 )
 execute_process(
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
+	"$ENV{SOURCE_ROOT}/themes"
+	"${RESOURCES_DIR}/themes"
+)
+execute_process(
+	COMMAND ${CMAKE_COMMAND} -E copy_directory
 	"$ENV{SOURCE_ROOT}/fonts"
 	"${RESOURCES_DIR}/fonts"
 )
