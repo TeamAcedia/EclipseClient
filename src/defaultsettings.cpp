@@ -74,6 +74,9 @@ void set_default_settings()
 	Settings *settings = Settings::createLayer(SL_DEFAULTS);
 	bool has_touch = detect_touch();
 
+	// Eclipse specific
+	settings->setDefault("ColorTheme", "Default");
+
 	// Client and server
 	settings->setDefault("language", "");
 	settings->setDefault("name", "");
