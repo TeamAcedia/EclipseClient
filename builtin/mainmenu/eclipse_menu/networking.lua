@@ -1,3 +1,7 @@
+-- Eclipse - Networking handler
+-- Copyright (C) 2025 ProunceDev
+-- MIT License
+
 API_SERVER_ADDRESS = "http://teamacedia.baselinux.net:22222/"
 --API_SERVER_ADDRESS = "http://127.0.0.1:22222/"
 
