@@ -1,6 +1,6 @@
---------------------------------------------------------
--- Eclipse menu
---------------------------------------------------------
+-- Eclipse - Startup and Login Menu
+-- Copyright (C) 2025 ProunceDev
+-- MIT License
 
 LOGIN_USERNAME_SETTING_NAME = "login_username"
 LOGIN_PASSWORD_SETTING_NAME = "login_password"
@@ -18,13 +18,15 @@ local current_loading_progress = 0
 local target_loading_progress = 0
 local display_message = {}
 
+local ui_update = nil
+
 local function show_loading()
 	local formspec = table.concat({
 		"formspec_version[6]",
 		"size[5,3]",
 		"bgcolor[;neither;]",
 		
-        "image[-2.25,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
+        "image[-2.15,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
 
 		"box[0,1.5;5,0.5;#888888]",
 		"box[0,1.5;" .. (5 * (current_loading_progress / 100)) .. ",0.5;#00FF00]",
@@ -40,7 +42,7 @@ local function show_sign_in()
 		"size[5,4.5]",
 		"bgcolor[;neither;]",
 		
-        "image[-2.25,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
+        "image[-2.15,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
 
 		"style_type[image_button;border=false;textcolor=white;font_size=*1.5;padding=0;font=bold;" ..
 		"bgimg=" .. core.formspec_escape(defaulttexturedir .. "menu_button.png") .. ";" ..
@@ -60,7 +62,7 @@ local function show_login()
 		"bgcolor[;neither;]",
 
 		-- Header image
-        "image[-2.25,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
+        "image[-2.15,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
 
 		-- Field styling to match buttons
 		"style_type[*;border=false;textcolor=white;font_size=*1.5;padding=0;font=bold]",
@@ -92,7 +94,7 @@ local function show_message()
 		"size[5,5]",
 		"bgcolor[;neither;]",
 		
-		"image[-2.25,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
+		"image[-2.15,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
 
 		"box[0,1.5;5,2.2;#222222]",
 		"real_coordinates[true]",
@@ -114,7 +116,7 @@ local function show_register()
 		"bgcolor[;neither;]",	
 
 		-- Header image
-		"image[-2.25,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
+		"image[-2.15,0;9.3,1;" .. core.formspec_escape(defaulttexturedir .. "menu_header.png") .. "]",
 
 		-- Field styling
 		"style_type[*;border=false;textcolor=white;font_size=*1.5;padding=0;font=bold]",
@@ -155,18 +157,32 @@ local function trigger_message(text)
 	state = "message"
 end
 
-function start_eclipse_menu()
+function start_startup_menu()
+	-- Sketchy workaround to disable ui updates while we run the startup menu
+	ui_update = ui.update
+	ui.update = function() end
+	ui.childlist = {}
+	
+	mm_game_theme.clear_single("header")
+	mm_game_theme.clear_single("footer")
+
+	current_loading_progress = 0
+	target_loading_progress = 0
 	current_loading_message = "Connecting to server..."
-	show_loading()
+	state = "init"
 	core.event_handler("Step")
 end
 
 local function on_menustep(dtime)
-	current_loading_progress = current_loading_progress + (target_loading_progress - current_loading_progress) * dtime * 2
+	current_loading_progress = current_loading_progress + (target_loading_progress - current_loading_progress) * dtime * 4
 
 	if current_loading_progress > 99 and target_loading_progress >= 100 then
 		current_loading_progress = 100
 		state = "finished"
+		if ui_update then
+			ui.update = ui_update
+			ui_update = nil
+		end
 		init_globals()
 		return
 	end
@@ -175,7 +191,8 @@ local function on_menustep(dtime)
 		target_loading_progress = 10
 		current_loading_message = "Verifying Login Credentials..."
 		state = "verify_credentials"
-	elseif state == "verify_credentials" then
+	end
+	if state == "verify_credentials" then
 		login_username = cache_settings:get(LOGIN_USERNAME_SETTING_NAME) or ""
 		local hashed_pw = cache_settings:get(LOGIN_PASSWORD_SETTING_NAME)
 
@@ -233,10 +250,12 @@ local function on_menustep(dtime)
 		else
 			state = "sign_in"
 		end
-	elseif state == "sign_in" then
+	end
+	if state == "sign_in" then
 		target_loading_progress = 30
 		current_loading_message = "Awaiting User Sign In..."
-	elseif state == "download_media" then
+	end
+	if state == "download_media" then
 		target_loading_progress = 90
 		current_loading_message = "Downloading Assets..."
 		state = "logging_in"
