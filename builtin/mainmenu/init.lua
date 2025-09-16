@@ -39,6 +39,9 @@ dofile(menupath .. DIR_DELIM .. "dlg_rebind_keys.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_clients_list.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_server_list_mods.lua")
 
+dofile(menupath .. DIR_DELIM .. "networking.lua")
+dofile(menupath .. DIR_DELIM .. "eclipse_menu.lua")
+
 local tabs = {
 	content  = dofile(menupath .. DIR_DELIM .. "tab_content.lua"),
 	about = dofile(menupath .. DIR_DELIM .. "tab_about.lua"),
@@ -55,7 +58,7 @@ local function main_event_handler(tabview, event)
 end
 
 --------------------------------------------------------------------------------
-local function init_globals()
+function init_globals()
 	-- Init gamedata
 	gamedata.worldindex = 0
 
@@ -122,4 +125,10 @@ local function init_globals()
 end
 
 assert(os.execute == nil)
-init_globals()
+
+
+local function startup()
+	start_eclipse_menu()
+end
+
+startup()
