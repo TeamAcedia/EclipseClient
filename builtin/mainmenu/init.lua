@@ -8,11 +8,13 @@ TABHEADER_H = 0.85
 GAMEBAR_H = 1.25
 GAMEBAR_OFFSET_DESKTOP = 0.375
 GAMEBAR_OFFSET_TOUCH = 0.15
-
+mainmenu = nil
 local menupath = core.get_mainmenu_path()
 local basepath = core.get_builtin_path()
 defaulttexturedir = core.get_texturepath_share() .. DIR_DELIM .. "base" ..
 					DIR_DELIM .. "pack" .. DIR_DELIM
+
+local eclipse_menu_path = menupath .. DIR_DELIM .. "eclipse_menu"
 
 dofile(basepath .. "common" .. DIR_DELIM .. "menu.lua")
 dofile(basepath .. "common" .. DIR_DELIM .. "filterlist.lua")
@@ -39,8 +41,15 @@ dofile(menupath .. DIR_DELIM .. "dlg_rebind_keys.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_clients_list.lua")
 dofile(menupath .. DIR_DELIM .. "dlg_server_list_mods.lua")
 
-dofile(menupath .. DIR_DELIM .. "networking.lua")
-dofile(menupath .. DIR_DELIM .. "eclipse_menu.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "networking.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "eclipse_menu.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_about.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_content.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_cosmetics.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_csm.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_local.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_online.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "mainmenu.lua")
 
 local tabs = {
 	content  = dofile(menupath .. DIR_DELIM .. "tab_content.lua"),
@@ -82,6 +91,7 @@ function init_globals()
 	mm_game_theme.set_engine() -- This is just a fallback.
 
 	-- Create main tabview
+	--[[
 	local tv_main = tabview_create("maintab", {x = MAIN_TAB_W, y = MAIN_TAB_H}, {x = 0, y = 0})
 
 	tv_main:set_autosave_tab(true)
@@ -114,21 +124,29 @@ function init_globals()
 	ui.set_default("maintab")
 	tv_main:show()
 	ui.update()
+	]]--
+
+	mainmenu = create_main_menu("mainmenu")
+
+	ui.add(mainmenu)
+	ui.set_default("mainmenu")
+	mainmenu:show()
+	ui.update()
 
 	-- synchronous, chain parents to only show one at a time
-	local parent = tv_main
+	local parent = mainmenu
 	parent = migrate_keybindings(parent)
 	check_reinstall_mtg(parent)
 
 	-- asynchronous, will only be shown if we're still on "maintab"
-	check_new_version()
+	--check_new_version() Temporarily disable this until we have a proper update system for Eclipse.
 end
 
 assert(os.execute == nil)
 
 
 local function startup()
-	start_eclipse_menu()
+	start_startup_menu()
 end
 
 startup()
