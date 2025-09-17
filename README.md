@@ -125,11 +125,11 @@ Compiling
 
 Version scheme
 --------------
-We use `major.minor-parent_major.parent_minor.parent_patch`.
+We use `major.minor.patch [parent_major.parent_minor]`.
 
 - Major is incremented when the release contains major changes, Minor is then set to 0.
 - Minor is incremented when the release contains minor features.
+- Patch is incremented when the release contains bug fixes.
 
 - Parent_Major is set to whatever the Major is on the parent project Luanti.
 - Parent_Minor is set to whatever the Minor is on the parent project Luanti.
-- Parent_Patch is set to whatever the Patch is on the parent project Luanti.
