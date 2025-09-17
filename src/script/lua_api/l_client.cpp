@@ -19,6 +19,12 @@
 #include "map.h"
 #include "util/string.h"
 #include "nodedef.h"
+#include "l_clientobject.h"
+#include "filesys.h"
+#include <sstream>
+#include <string>
+#include <cstdint>
+#include <iostream>
 
 #define checkCSMRestrictionFlag(flag) \
 	( getClient(L)->checkCSMRestrictionFlag(CSMRestrictionFlags::flag) )
@@ -112,9 +118,6 @@ int ModApiClient::l_clear_out_chat_queue(lua_State *L)
 // get_player_names()
 int ModApiClient::l_get_player_names(lua_State *L)
 {
-	if (checkCSMRestrictionFlag(CSM_RF_READ_PLAYERINFO))
-		return 0;
-
 	auto plist = getClient(L)->getConnectedPlayerNames();
 	lua_createtable(L, plist.size(), 0);
 	int newTable = lua_gettop(L);
@@ -301,6 +304,115 @@ int ModApiClient::l_get_csm_restrictions(lua_State *L)
 	return 1;
 }
 
+// get_active_object(id)
+int ModApiClient::l_get_active_object(lua_State *L)
+{
+	u16 id = luaL_checknumber(L, 1);
+
+	ClientObjectRef::create(L, id);
+
+	return 1;
+}
+
+std::string makeGenericEntityInitData() {
+    // Raw string literal containing the init string for a generic entity mesh with the character.b3d mesh and character.png texture, this allows modification using object properties
+    static const char raw_data[] = 	R"("\u0001\u0000\u0011clientside:object\u0000\u0000\u0002Bi\u00eb\u0085A\u00a0\u0000\u0000\u00c2^=q\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\n\u0005\u0000\u0000\u0000\u00b8\u0000\u0004\u0000\n\u0000\u0000\u0000\u0000\u0000\u00bf\u0000\u0000\u0000\u00bf\u0000\u0000\u0000\u00bf\u0000\u0000\u0000?\u0000\u0000\u0000?\u0000\u0000\u0000?\u0000\u0000\u0000\u00bf\u0000\u0000\u0000\u00bf\u0000\u0000\u0000\u00bf\u0000\u0000\u0000?\u0000\u0000\u0000?\u0000\u0000\u0000?\u0000\u0000\u0000\u0000\u0000\u0004mesh?\u0080\u0000\u0000?\u0080\u0000\u0000?\u0080\u0000\u0000\u0000\u0001\u0000\rplacehold.png\u0000\u0001\u0000\u0001\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000\rplacehold.obj\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u00ff\u00ff\u00ff\u00ff\u00bf\u0080\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000?\u00d0\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\n^[brighten\u0001\u0000\u0000\u0001\u0001\u0001\u0000\u0000\u007f\u0000\u0000\u0000\u0000\u0000\r\u0005\u0000\u0001\u0000\u0006fleshy\u0000d\u0000\u0000\u0000\u0012\u0006\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u001e\b\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0003\u0002\u0000\u0000")";
+
+    std::string init_data(raw_data);
+
+    std::istringstream ss(init_data);
+    return deSerializeJsonString(ss);
+}
+
+// add_active_object()
+int ModApiClient::l_add_active_object(lua_State *L)
+{
+	ClientEnvironment &env = getClient(L)->getEnv();
+	u16 id = env.getAvailableClientObjectID();
+
+	std::string init_data = makeGenericEntityInitData();
+
+	std::unique_ptr<ClientActiveObject> obj = ClientActiveObject::create((ActiveObjectType) ACTIVEOBJECT_TYPE_GENERIC, getClient(L), &env);
+	if (!obj) {
+		infostream<<"ClientEnvironment::addActiveObject(): "
+			<<"id="<<id<<" type="<<ACTIVEOBJECT_TYPE_GENERIC<<": Couldn't create object"
+			<<std::endl;
+		lua_pushnil(L);
+		return 1;
+	}
+
+	try {
+		obj->initialize(init_data);
+		obj->setId(id);
+		obj->setPosition(v3f(0, 0, 0));
+	} catch(SerializationError &e) {
+		errorstream<<"ClientEnvironment::addActiveObject():"
+			<<" id="<<id<<" type="<<(ActiveObjectType) ACTIVEOBJECT_TYPE_GENERIC
+			<<": SerializationError in initialize(): "
+			<<e.what()
+			<<": init_data="<<serializeJsonString(init_data)
+			<<std::endl;
+		
+		lua_pushnil(L);
+		return 1;
+	}
+
+	u16 new_id = env.addActiveObject(std::move(obj));
+
+	lua_pushinteger(L, new_id);
+	return 1;
+}
+
+// get_objects_inside_radius(pos, radius)
+int ModApiClient::l_get_objects_inside_radius(lua_State *L)
+{
+    ClientEnvironment &env = getClient(L)->getEnv();
+
+    v3f pos = checkFloatPos(L, 1);
+    float radius = readParam<float>(L, 2) * BS;
+
+    std::vector<DistanceSortedActiveObject> objs;
+    env.getActiveObjects(pos, radius, objs);
+
+    lua_createtable(L, objs.size(), 0);
+    for (size_t i = 0; i < objs.size(); ++i) {
+        ClientObjectRef::create(L, objs[i].obj);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// load_media(filename)   Load a media file (model/image/sound/font) from a path
+int ModApiClient::l_load_media(lua_State *L)
+{
+	const char *filename = luaL_checkstring(L, 1);
+
+	std::string fullpath = porting::path_user + DIR_DELIM + "textures" + DIR_DELIM + "custom_assets" +  DIR_DELIM + filename;
+	
+	std::ifstream f(fullpath, std::ios::binary);
+
+	if (!f.good()) {
+		lua_pushboolean(L, false);
+		lua_pushstring(L, "File not found");
+		return 2;
+	}
+
+	std::ostringstream buffer;
+	buffer << f.rdbuf();
+	std::string data = buffer.str();
+
+	Client *client = getClient(L);
+	bool success = client->loadMedia(data, filename, false);
+
+	lua_pushboolean(L, success);
+	if (!success)
+		lua_pushstring(L, "Failed to load file");
+	else
+		lua_pushnil(L);
+
+	return 2;
+}
+
 void ModApiClient::Initialize(lua_State *L, int top)
 {
 	API_FCT(get_current_modname);
@@ -321,4 +433,8 @@ void ModApiClient::Initialize(lua_State *L, int top)
 	API_FCT(get_builtin_path);
 	API_FCT(get_language);
 	API_FCT(get_csm_restrictions);
+	API_FCT(get_objects_inside_radius);
+	API_FCT(get_active_object);
+	API_FCT(add_active_object);
+	API_FCT(load_media);
 }

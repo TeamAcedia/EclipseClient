@@ -22,6 +22,8 @@
 #include "lua_api/l_camera.h"
 #include "lua_api/l_settings.h"
 #include "lua_api/l_client_sound.h"
+#include "lua_api/l_clientobject.h"
+#include "lua_api/l_http.h"
 
 ClientScripting::ClientScripting(Client *client):
 	ScriptApiBase(ScriptingType::Client)
@@ -62,6 +64,7 @@ void ClientScripting::InitializeModApi(lua_State *L, int top)
 	ModChannelRef::Register(L);
 	LuaSettings::Register(L);
 	ClientSoundHandle::Register(L);
+	ClientObjectRef::Register(L);
 
 	ModApiUtil::InitializeClient(L, top);
 	ModApiClientCommon::Initialize(L, top);
@@ -72,6 +75,7 @@ void ClientScripting::InitializeModApi(lua_State *L, int top)
 	ModApiChannels::Initialize(L, top);
 	ModApiParticlesLocal::Initialize(L, top);
 	ModApiClientSound::Initialize(L, top);
+	ModApiHttp::InitializeClientSide(L, top);
 }
 
 void ClientScripting::on_client_ready(LocalPlayer *localplayer)

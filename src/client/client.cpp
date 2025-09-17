@@ -170,19 +170,10 @@ void Client::loadMods()
 	// Don't load mods twice.
 	// If client scripting is disabled by the client, don't load builtin or
 	// client-provided mods.
-	if (m_mods_loaded || !g_settings->getBool("enable_client_modding"))
+	if (m_mods_loaded)
 		return;
 
-	// If client scripting is disabled by the server, don't load builtin or
-	// client-provided mods.
-	// TODO Delete this code block when server-sent CSM and verifying of builtin are
-	// complete.
-	if (checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOAD_CLIENT_MODS)) {
-		warningstream << "Client-provided mod loading is disabled by server." <<
-			std::endl;
-		return;
-	}
-
+	
 	m_script = new ClientScripting(this);
 	m_env.setScript(m_script);
 	m_script->setEnv(&m_env);
@@ -191,6 +182,26 @@ void Client::loadMods()
 	scanModIntoMemory(BUILTIN_MOD_NAME, getBuiltinLuaPath());
 	m_script->loadModFromMemory(BUILTIN_MOD_NAME);
 	m_script->checkSetByBuiltin();
+
+	// If client scripting is disabled by the server, don't load client-provided mods.
+	if (checkCSMRestrictionFlag(CSMRestrictionFlags::CSM_RF_LOAD_CLIENT_MODS)) {
+		warningstream << "Client-provided mod loading is disabled by server." << std::endl;
+
+		// Mods are done loading. Unlock callbacks
+		m_mods_loaded = true;
+
+		// Run a callback when mods are loaded
+		m_script->on_mods_loaded();
+
+		// Create objects if they're ready
+		if (m_state == LC_Ready)
+			m_script->on_client_ready(m_env.getLocalPlayer());
+		if (m_camera)
+			m_script->on_camera_ready(m_camera);
+		if (m_minimap)
+			m_script->on_minimap_ready(m_minimap.get());
+		return;
+	}
 
 	ModConfiguration modconf;
 	{

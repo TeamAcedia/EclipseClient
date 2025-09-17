@@ -1,4 +1,4 @@
--- Eclipse - Networking handler
+-- Eclipse
 -- Copyright (C) 2025 ProunceDev
 -- MIT License
 

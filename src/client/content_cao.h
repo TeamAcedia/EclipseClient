@@ -179,13 +179,19 @@ public:
 
 	const v3f getPosition() const override final;
 
+	v3f setPosition(v3f position) override final;
+
 	const v3f getVelocity() const override final { return m_velocity; }
+
+	inline const v3f getAcceleration() const { return m_acceleration; }
 
 	inline const v3f &getRotation() const { return m_rotation; }
 
 	bool isImmortal() const;
 
 	inline const ObjectProperties &getProperties() const { return m_prop; }
+	
+	void setProperties(ObjectProperties newprops);
 
 	inline const std::string &getName() const { return m_name; }
 
