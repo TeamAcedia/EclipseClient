@@ -153,14 +153,9 @@ bool ClientLauncher::run(GameStartData &start_data, const Settings &cmd_args)
 	while (m_rendering_engine->run() && !*kill &&
 		!g_gamecallback->shutdown_requested) {
 		// Set the window caption
-		auto driver_name = m_rendering_engine->getVideoDriver()->getName();
-		std::string caption = std::string(PROJECT_NAME_C) +
-			" " + g_version_hash +
-			" [" + gettext("Main Menu") + "]" +
-			" [" + driver_name + "]";
+		std::string caption = std::string(PROJECT_NAME_C) + " " + g_eclipse_version_string;
 
-		m_rendering_engine->get_raw_device()->
-			setWindowCaption(utf8_to_wide(caption).c_str());
+		m_rendering_engine->get_raw_device()->setWindowCaption(utf8_to_wide(caption).c_str());
 
 #ifdef NDEBUG
 		try {

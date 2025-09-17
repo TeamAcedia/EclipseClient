@@ -12,8 +12,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(GCC_MINIMUM_VERSION "7.5")
 set(CLANG_MINIMUM_VERSION "7.0.1")
 
+# Eclipse version, independent of the Luanti version
+# This is mostly for display purposes, e.g. "Eclipse 1.0.0"
+# and to distinguish Eclipse releases from Luanti releases.
+# This should be incremented for releases of Eclipse and releases of Luanti.
 set(ECLIPSE_VERSION_MAJOR 1)
 set(ECLIPSE_VERSION_MINOR 0)
+set(ECLIPSE_VERSION_PATCH 0)
 
 # You should not need to edit these manually, use util/bump_version.sh
 set(VERSION_MAJOR 5)
@@ -36,7 +41,7 @@ if (CMAKE_BUILD_TYPE STREQUAL Debug)
 	set(VERSION_STRING "${VERSION_STRING}-debug")
 endif()
 
-set(ECLIPSE_VERSION_STRING "${ECLIPSE_VERSION_MAJOR}.${ECLIPSE_VERSION_MINOR}-${VERSION_STRING}")
+set(ECLIPSE_VERSION_STRING "${ECLIPSE_VERSION_MAJOR}.${ECLIPSE_VERSION_MINOR}.${ECLIPSE_VERSION_PATCH} [${VERSION_MAJOR}.${VERSION_MINOR}]")
 
 # Configuration options
 set(BUILD_CLIENT TRUE CACHE BOOL "Build client")
