@@ -2949,11 +2949,6 @@
 
 ## Developer Options
 
-#    Enable Lua modding support on client.
-#    This support is experimental and API can change.
-#    type: bool
-# enable_client_modding = false
-
 #    Replaces the default main menu with a custom one.
 #    type: string
 # main_menu_script =

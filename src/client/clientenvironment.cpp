@@ -485,3 +485,25 @@ void ClientEnvironment::updateFrameTime(bool is_paused)
 		m_frame_time = new_frame_time;
 	}
 }
+
+u16 ClientEnvironment::getAvailableClientObjectID()
+{
+    u16 id = m_last_client_object_Id;
+
+    do {
+        if (id == 0) {
+            id = UINT16_MAX;
+        } else {
+            id--;
+        }
+    } while (isClientObjectIDInUse(id));
+
+    m_last_client_object_Id = id;
+    return id;
+}
+
+bool ClientEnvironment::isClientObjectIDInUse(u16 object_id)
+{
+    ClientActiveObject *obj = getActiveObject(object_id);
+    return obj != NULL; // true if occupied
+}

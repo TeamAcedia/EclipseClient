@@ -375,6 +375,14 @@ const v3f GenericCAO::getPosition() const
 	return m_position;
 }
 
+v3f GenericCAO::setPosition(v3f position)
+{
+	m_position = position;
+
+	return m_position;
+}
+
+
 bool GenericCAO::isImmortal() const
 {
 	return itemgroup_get(getGroups(), "immortal");
@@ -1477,6 +1485,59 @@ bool GenericCAO::visualExpiryRequired(const ObjectProperties &new_) const
 		old.colors != new_.colors ||
 		(uses_legacy_texture && old.textures != new_.textures);
 }
+
+
+void GenericCAO::setProperties(ObjectProperties newprops)
+{
+	// Check what exactly changed
+	bool expire_visuals = visualExpiryRequired(newprops);
+	bool textures_changed = m_prop.textures != newprops.textures;
+
+	// Apply changes
+	m_prop = std::move(newprops);
+
+	m_selection_box = m_prop.selectionbox;
+	m_selection_box.MinEdge *= BS;
+	m_selection_box.MaxEdge *= BS;
+
+	m_tx_size.X = 1.0f / m_prop.spritediv.X;
+	m_tx_size.Y = 1.0f / m_prop.spritediv.Y;
+
+	if(!m_initial_tx_basepos_set){
+		m_initial_tx_basepos_set = true;
+		m_tx_basepos = m_prop.initial_sprite_basepos;
+	}
+	if (m_is_local_player) {
+		LocalPlayer *player = m_env->getLocalPlayer();
+		player->makes_footstep_sound = m_prop.makes_footstep_sound;
+		aabb3f collision_box = m_prop.collisionbox;
+		collision_box.MinEdge *= BS;
+		collision_box.MaxEdge *= BS;
+		player->setCollisionbox(collision_box);
+		player->setEyeHeight(m_prop.eye_height);
+		player->setZoomFOV(m_prop.zoom_fov);
+	}
+
+	if ((m_is_player && !m_is_local_player) && m_prop.nametag.empty())
+		m_prop.nametag = m_name;
+	if (m_is_local_player)
+		m_prop.show_on_minimap = false;
+
+	if (expire_visuals) {
+		expireVisuals();
+	} else {
+		infostream << "GenericCAO: properties updated but expiring visuals"
+			<< " not necessary" << std::endl;
+		if (textures_changed) {
+			// don't update while punch texture modifier is active
+			if (m_reset_textures_timer < 0)
+				updateTextures(m_current_texture_modifier);
+		}
+		updateNametag();
+		updateMarker();
+	}
+}
+
 
 void GenericCAO::processMessage(const std::string &data)
 {

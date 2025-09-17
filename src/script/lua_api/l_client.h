@@ -69,6 +69,17 @@ private:
 	// get_csm_restrictions()
 	static int l_get_csm_restrictions(lua_State *L);
 
+	// get_active_object(id)
+	static int l_get_active_object(lua_State *L);
+
+	// add_active_object()
+	static int l_add_active_object(lua_State *L);
+
+	// get_objects_inside_radius(pos, radius)
+	static int l_get_objects_inside_radius(lua_State *L);
+
+	// load_media(filename)   Load a media file (model/image/sound/font) from a path
+	static int l_load_media(lua_State *L);
 public:
 	static void Initialize(lua_State *L, int top);
 };

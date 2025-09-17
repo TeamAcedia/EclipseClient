@@ -137,6 +137,9 @@ public:
 	u64 getFrameTime() const { return m_frame_time; }
 	u64 getFrameTimeDelta() const { return m_frame_dtime; }
 
+	u16 getAvailableClientObjectID();
+	bool isClientObjectIDInUse(u16 object_id);
+
 private:
 	irr_ptr<ClientMap> m_map;
 	LocalPlayer *m_local_player = nullptr;
@@ -152,4 +155,5 @@ private:
 	u64 m_frame_time = 0;
 	u64 m_frame_dtime = 0;
 	u64 m_frame_time_pause_accumulator = 0;
+	u16 m_last_client_object_Id = UINT16_MAX;
 };
