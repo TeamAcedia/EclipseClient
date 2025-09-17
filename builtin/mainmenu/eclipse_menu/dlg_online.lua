@@ -535,6 +535,11 @@ local function main_button_handler(tabview, fields, name, tabdata_etc)
 		return true
 	end
 
+	if fields.back then
+		tabview:delete()
+		return true
+	end
+
 	if fields.btn_mp_refresh then
 		serverlistmgr.sync()
 		return true
