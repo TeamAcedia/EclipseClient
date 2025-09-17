@@ -1026,3 +1026,43 @@ As documented in `lua_api.md`, except for obvious reasons, the `playername` fiel
 ### `ParticleSpawner` definition (`add_particlespawner`)
 
 As documented in `lua_api.md`, except for obvious reasons, the `playername` field is not supported.
+
+
+
+`Eclipse`
+---------------
+
+All features added for Eclipse
+
+### Client Environment
+* `core.get_objects_inside_radius(pos, radius)`: returns a list of ClientObjectRefs.
+    * `radius`: using an euclidean metric
+
+* `core.get_nearby_objects(radius)`
+    * alias for minetest.get_objects_inside_radius(minetest.localplayer:get_pos(), radius)
+
+* `core.add_active_object()`: returns an active object ID for a newly added client object.
+
+* `core.get_active_object(id)`: returns the ClientObjectRef with the specified ID.
+    * `id`: object ID gotten from `core.add_active_object()`
+
+* `core.load_media(filename)`: Allows you to load custom media files from the `custom_assets` folder in `textures`.
+    * `filename`: name of the file to import, example: `placeholder.obj`
+
+### ClientObjectRef
+
+Moving things in the game are generally these.
+This is basically a reference to a C++ `GenericCAO`.
+
+#### Methods
+
+* `get_pos()`: returns `{x=num, y=num, z=num}`
+* `get_velocity()`: returns the velocity, a vector
+* `get_acceleration()`: returns the acceleration, a vector
+* `get_rotation()`: returns the rotation, a vector (radians)
+* `is_player()`: returns true if the object is a player
+* `is_local_player()`: returns true if the object is the local player
+* `get_attach()`: returns parent or nil if it isn't attached.
+* `set_properties(object property table)`
+* `get_properties()`: returns object property table
+* `remove()`: removes the object permanently
