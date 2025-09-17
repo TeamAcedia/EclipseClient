@@ -1,4 +1,4 @@
--- Eclipse - About Dialog
+-- Eclipse
 -- Copyright (C) 2025 ProunceDev
 -- MIT License
 
