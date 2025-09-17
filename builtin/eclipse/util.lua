@@ -1,4 +1,4 @@
--- Eclipse - Util.lua
+-- Eclipse
 -- Copyright (C) 2025 ProunceDev
 -- MIT License
 

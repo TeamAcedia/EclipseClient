@@ -1,4 +1,4 @@
--- Eclipse - Package Manager
+-- Eclipse
 -- Copyright (C) 2025 ProunceDev
 -- MIT License
 
