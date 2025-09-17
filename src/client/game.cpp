@@ -1025,16 +1025,9 @@ bool Game::createClient(const GameStartData &start_data)
 
 	/* Set window caption
 	 */
-	auto driver_name = driver->getName();
-	std::string str = std::string(PROJECT_NAME_C) +
-			" " + g_version_hash + " [";
-	str += simple_singleplayer_mode ? gettext("Singleplayer")
-			: gettext("Multiplayer");
-	str += "] [";
-	str += driver_name;
-	str += "]";
+	std::string caption = std::string(PROJECT_NAME_C) + " " + g_eclipse_version_string;
 
-	device->setWindowCaption(utf8_to_wide(str).c_str());
+	device->setWindowCaption(utf8_to_wide(caption).c_str());
 
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
 	player->hurt_tilt_timer = 0;

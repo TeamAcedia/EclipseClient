@@ -520,6 +520,9 @@ int ModApiUtil::l_get_version(lua_State *L)
 	lua_pushstring(L, g_version_string);
 	lua_setfield(L, table, "string");
 
+	lua_pushstring(L, g_eclipse_version_string);
+	lua_setfield(L, table, "eclipse_string");
+
 	lua_pushnumber(L, SERVER_PROTOCOL_VERSION_MIN);
 	lua_setfield(L, table, "proto_min");
 

@@ -7,3 +7,4 @@
 extern const char *g_version_string;
 extern const char *g_version_hash;
 extern const char *g_build_info;
+extern const char *g_eclipse_version_string;

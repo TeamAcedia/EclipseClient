@@ -130,43 +130,22 @@ local function get_formspec(dlgview, name, tabdata)
 	}
 
 	table.insert_all(hypertext, {
-		"<heading>", fgettext_ne("Team Acedia"), "</heading>\n",
+		"<heading>", fgettext_ne("Team Acedia Developers"), "</heading>\n",
 	})
 	prepare_credits(hypertext, client_core_developers)
 
 	table.insert_all(hypertext, {
 		"\n",
-		"<heading>", fgettext_ne("Core Developers"), "</heading>\n",
+		"<heading>", fgettext_ne("Luanti Core Developers"), "</heading>\n",
 	})
 	prepare_credits(hypertext, core_developers)
-	table.insert_all(hypertext, {
-		"\n",
-		"<heading>", fgettext_ne("Core Team"), "</heading>\n",
-	})
-	prepare_credits(hypertext, core_team)
-	table.insert_all(hypertext, {
-		"\n",
-		"<heading>", fgettext_ne("Active Contributors"), "</heading>\n",
-	})
-	prepare_credits(hypertext, active_contributors)
-	table.insert_all(hypertext, {
-		"\n",
-		"<heading>", fgettext_ne("Previous Core Developers"), "</heading>\n",
-	})
-	prepare_credits(hypertext, previous_core_developers)
-	table.insert_all(hypertext, {
-		"\n",
-		"<heading>", fgettext_ne("Previous Contributors"), "</heading>\n",
-	})
-	prepare_credits(hypertext, previous_contributors)
 
 	hypertext = table.concat(hypertext):sub(1, -2)
 
 	local fs = "size[17.5,8.1,true]" .."image[1.0,0.1;4,4;" .. core.formspec_escape(logofile) .. "]" ..
 		"style[label_button;border=false]" ..
-		"button[0.1,3.4;5.3,0.5;label_button;" ..
-		core.formspec_escape(version.project .. " " .. version.string) .. "]" ..
-		"button_url[1.5,4.1;2.5,0.8;homepage;minetest.net;https://www.minetest.net/]" ..
+		"button[0.1,4;5.3,0.5;label_button;" ..
+		core.formspec_escape(version.project .. " " .. version.eclipse_string) .. "]" ..
 		"hypertext[5.5,0.25;12.5,9;credits;" .. minetest.formspec_escape(hypertext) .. "]" ..
 		"button[0.5,7.1;4.5,0.8;back;" .. fgettext("Back") .. "]"
 
