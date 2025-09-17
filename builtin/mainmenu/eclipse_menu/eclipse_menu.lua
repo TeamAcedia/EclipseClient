@@ -1,4 +1,4 @@
--- Eclipse - Startup and Login Menu
+-- Eclipse
 -- Copyright (C) 2025 ProunceDev
 -- MIT License
 
