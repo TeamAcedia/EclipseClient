@@ -573,7 +573,7 @@ void ClientLauncher::main_menu(MainMenuData *menudata)
 	}
 
 	/* show main menu */
-	GUIEngine mymenu(&input->joystick, guiroot, m_rendering_engine, &g_menumgr, menudata, *kill);
+	GUIEngine mymenu(&input->joystick, guiroot, m_rendering_engine, &g_menumgr, menudata, *kill, receiver);
 
 	/* leave scene manager in a clean state */
 	m_rendering_engine->get_scene_manager()->clear();

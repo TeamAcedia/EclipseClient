@@ -14,6 +14,8 @@
 #include "util/enriched_string.h"
 #include "translation.h"
 #include "client/color_theme.h"
+#include "gui/eclipseMenu.h"
+#include "client/inputhandler.h"
 
 #include <csignal>
 
@@ -126,7 +128,8 @@ public:
 			RenderingEngine *rendering_engine,
 			IMenuManager *menumgr,
 			MainMenuData *data,
-			volatile std::sig_atomic_t &kill);
+			volatile std::sig_atomic_t &kill,
+			MyEventReceiver *receiver);
 
 	/** default destructor */
 	virtual ~GUIEngine();
@@ -206,6 +209,9 @@ private:
 	/** script basefolder */
 	std::string                           m_scriptdir = "";
 
+	/** Eclipse Menu */
+	EclipseMenu 						  *eclipse_menu = nullptr;
+
 	void setFormspecPrepend(const std::string &fs);
 
 	/**
@@ -272,4 +278,6 @@ private:
 	bool m_clouds_enabled = true;
 
 	static void fullscreenChangedCallback(const std::string &name, void *data);
+
+	MyEventReceiver *receiver = nullptr;
 };
