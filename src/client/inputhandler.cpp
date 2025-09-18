@@ -68,6 +68,9 @@ void MyEventReceiver::reloadKeybindings()
 	keybindings[KeyType::QUICKTUNE_INC] = getKeySetting("keymap_quicktune_inc");
 	keybindings[KeyType::QUICKTUNE_DEC] = getKeySetting("keymap_quicktune_dec");
 
+	// Eclipse Specific
+	keybindings[KeyType::SHOW_ECLIPSE_MENU] = getKeySetting("keymap_show_eclipse_menu");
+
 	for (int i = 0; i < HUD_HOTBAR_ITEMCOUNT_MAX; i++) {
 		std::string slot_key_name = "keymap_slot" + std::to_string(i + 1);
 		keybindings[KeyType::SLOT_1 + i] = getKeySetting(slot_key_name.c_str());
@@ -157,6 +160,10 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 
 		} else if (keyCode == EscapeKey) {
 			esc_down = event.KeyInput.PressedDown;
+		} else if (keyCode == getKeySetting("keymap_show_eclipse_menu")) {
+			if (event.KeyInput.PressedDown) {
+				open_eclipse_menu_pressed = true;
+			}
 		}
 
 		if (esc_down && close_world_down) {

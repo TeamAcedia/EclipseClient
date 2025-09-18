@@ -30,5 +30,6 @@ set(gui_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/touchscreenlayout.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/touchscreeneditor.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/drawItemStack.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/eclipseMenu.cpp
 	PARENT_SCOPE
 )

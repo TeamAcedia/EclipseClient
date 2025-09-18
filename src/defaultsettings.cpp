@@ -223,6 +223,10 @@ void set_default_settings()
 	settings->setDefault("keymap_slot31", "");
 	settings->setDefault("keymap_slot32", "");
 
+	// Eclipse Specific
+
+	settings->setDefault("keymap_show_eclipse_menu", "KEY_RSHIFT");
+
 #ifndef NDEBUG
 	// Default keybinds for quicktune in debug builds
 	USEKEY2("keymap_quicktune_prev", "SYSTEM_SCANCODE_74", "KEY_HOME");

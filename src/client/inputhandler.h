@@ -88,6 +88,8 @@ public:
 
 	PointerType getLastPointerType() { return last_pointer_type; }
 
+	bool open_eclipse_menu_pressed = false;
+
 private:
 	void listenForKey(KeyPress keyCode, GameKeyType action)
 	{
@@ -181,6 +183,8 @@ public:
 	}
 
 	JoystickController joystick;
+	
+	bool open_eclipse_menu_pressed = false;
 };
 
 /*
@@ -259,6 +263,11 @@ public:
 	{
 		joystick.releaseAllKeys();
 		m_receiver->releaseAllKeys();
+	}
+
+	virtual MyEventReceiver* getReceiver()
+	{
+		return m_receiver;
 	}
 
 private:
