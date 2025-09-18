@@ -107,13 +107,15 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 		RenderingEngine *rendering_engine,
 		IMenuManager *menumgr,
 		MainMenuData *data,
-		volatile std::sig_atomic_t &kill) :
+		volatile std::sig_atomic_t &kill,
+		MyEventReceiver *receiver) :
 	m_rendering_engine(rendering_engine),
 	m_parent(parent),
 	m_menumanager(menumgr),
 	m_smgr(rendering_engine->get_scene_manager()),
 	m_data(data),
-	m_kill(kill)
+	m_kill(kill),
+	receiver(receiver)
 {
 	// Go back to our mainmenu fonts
 	// Delayed until mainmenu initialization because of #15883
@@ -188,6 +190,9 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 			errorstream << "No future without main menu!" << std::endl;
 			abort();
 		}
+		
+		// Init Eclipse Menu
+		eclipse_menu = new EclipseMenu(m_rendering_engine->get_gui_env(), m_parent, -1, m_menumanager, nullptr);
 
 		run();
 	} catch (LuaError &e) {
@@ -300,14 +305,7 @@ void GUIEngine::run()
 	themes_path = porting::path_user + DIR_DELIM + "themes";
 	theme_manager = ThemeManager();
 	theme_manager.LoadThemes(themes_path);
-
-	if (g_settings->exists("ColorTheme")) {
-		current_theme_name = g_settings->get("ColorTheme");
-	} else {
-		current_theme_name = "Default";
-		g_settings->set("ColorTheme", current_theme_name);
-	}
-
+	current_theme_name = g_settings->get("ColorTheme");
 	current_theme = theme_manager.GetThemeByName(current_theme_name);
 
 	IrrlichtDevice *device = m_rendering_engine->get_raw_device();
@@ -345,6 +343,8 @@ void GUIEngine::run()
 	fps_control.reset();
 
 	auto framemarker = FrameMarker("GUIEngine::run()-frame").started();
+	
+	receiver->open_eclipse_menu_pressed = false; // Reset the flag to avoid immediate opening of the Eclipse Menu
 
 	while (m_rendering_engine->run() && !m_startgame && !m_kill) {
 		framemarker.end();
@@ -354,6 +354,12 @@ void GUIEngine::run()
 		g_fontengine->handleReload();
 
 		if (device->isWindowVisible()) {
+
+			if (receiver->open_eclipse_menu_pressed) {
+				receiver->open_eclipse_menu_pressed = false;
+				eclipse_menu->create();
+			}
+
 			// check if we need to update the "upper left corner"-text
 			if (text_height != g_fontengine->getTextHeight()) {
 				updateTopLeftTextSize();
@@ -387,6 +393,13 @@ void GUIEngine::run()
 		sound_volume_control(m_sound_manager.get(), device->isWindowActive());
 		m_sound_manager->step(dtime);
 
+		
+		// Verify that the Eclipse Menu has been initlialized
+		if (eclipse_menu != nullptr && !eclipse_menu->m_initialized) {
+			eclipse_menu->create();
+			eclipse_menu->close();
+		}
+
 #ifdef __ANDROID__
 		m_menu->getAndroidUIInput();
 #endif
@@ -401,6 +414,13 @@ void GUIEngine::run()
 /******************************************************************************/
 GUIEngine::~GUIEngine()
 {
+	
+	// Delete eclipse menu
+	if (eclipse_menu) {
+		eclipse_menu->remove(); // safely remove from GUI
+		eclipse_menu = nullptr;  // avoid dangling pointer
+	}
+	
 	g_settings->deregisterAllChangedCallbacks(this);
 
 	// deinitialize script first. gc destructors might depend on other stuff

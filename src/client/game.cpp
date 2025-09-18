@@ -48,6 +48,7 @@
 #include <IAnimatedMeshSceneNode.h>
 #include "util/tracy_wrapper.h"
 #include "item_visuals_manager.h"
+#include "gui/eclipseMenu.h"
 
 #if USE_SOUND
 	#include "client/sound/sound_openal.h"
@@ -722,6 +723,13 @@ void Game::run()
 		if (m_does_lost_focus_pause_game && !device->isWindowFocused() && !isMenuActive()) {
 			m_game_formspec.showPauseMenu();
 		}
+
+		
+		// Verify that the Eclipse Menu has been initlialized
+		if (eclipse_menu != nullptr && !eclipse_menu->m_initialized) {
+			eclipse_menu->create();
+			eclipse_menu->close();
+		}
 	}
 
 	framemarker.end();
@@ -736,6 +744,12 @@ void Game::run()
 
 void Game::shutdown()
 {
+	// Delete eclipse menu
+	if (eclipse_menu) {
+		eclipse_menu->remove(); // safely remove from GUI
+		eclipse_menu = nullptr;  // avoid dangling pointer
+	}
+
 	// Delete text and menus first
 	m_game_ui->clearText();
 	m_game_formspec.reset();
@@ -1063,6 +1077,13 @@ bool Game::initGui()
 
 	// Make sure the size of the recent messages buffer is right
 	chat_backend->applySettings();
+
+	// Init Eclipse Menu
+	eclipse_menu = new EclipseMenu(guienv, guienv->getRootGUIElement(), -1, &g_menumgr, client);
+	if (!eclipse_menu) {
+		errorstream << "Could not allocate memory for eclipse menu" << std::endl;
+		return false;
+	}
 
 	// Chat backend and console
 	gui_chat_console = make_irr<GUIChatConsole>(guienv, guienv->getRootGUIElement(),
@@ -1599,6 +1620,8 @@ void Game::processKeyInput()
 		toggleBlockBounds();
 	} else if (wasKeyPressed(KeyType::TOGGLE_HUD)) {
 		m_game_ui->toggleHud();
+	} else if (wasKeyPressed(KeyType::SHOW_ECLIPSE_MENU)) {
+		eclipse_menu->create();
 	} else if (wasKeyPressed(KeyType::MINIMAP)) {
 		toggleMinimap(isKeyDown(KeyType::SNEAK));
 	} else if (wasKeyPressed(KeyType::TOGGLE_CHAT)) {

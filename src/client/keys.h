@@ -62,6 +62,11 @@ public:
 		QUICKTUNE_INC,
 		QUICKTUNE_DEC,
 
+		
+		// Eclipse Specific
+		
+		SHOW_ECLIPSE_MENU,
+
 		// hotbar
 		SLOT_1,
 		SLOT_2,
@@ -98,7 +103,6 @@ public:
 
 		// Fake keycode for array size and internal checks
 		INTERNAL_ENUM_COUNT
-
 	};
 };
 
