@@ -93,13 +93,6 @@ local function fetch()
 		latest_releases = lowercase_keys(releases)
 		core.safe_file_write(cache_file_path, core.write_json(latest_releases))
 		cache_settings:set("cdb_updates_last_checked", tostring(os.time()))
-
-		if update_detector.get_count() > 0 then
-			local maintab = ui.find_by_name("maintab")
-			if not maintab.hidden then
-				ui.update()
-			end
-		end
 	end)
 end
 

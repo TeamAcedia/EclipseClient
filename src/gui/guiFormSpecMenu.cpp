@@ -3497,9 +3497,9 @@ void GUIFormSpecMenu::drawMenu()
 	core::rect<s32> allbg(0, 0, screenSize.X, screenSize.Y);
 
 	if (m_bgfullscreen)
-		driver->draw2DRectangle(m_fullscreen_bgcolor, allbg, &allbg);
+		driver->draw2DRoundedRectangle(allbg, m_fullscreen_bgcolor, 10, &allbg);
 	if (m_bgnonfullscreen)
-		driver->draw2DRectangle(m_bgcolor, AbsoluteRect, &AbsoluteClippingRect);
+		driver->draw2DRoundedRectangle(AbsoluteRect, m_bgcolor, 10, &AbsoluteClippingRect);
 
 	/*
 		Draw rect_mode tooltip

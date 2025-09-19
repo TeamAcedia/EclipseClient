@@ -153,8 +153,26 @@ public:
 			const core::rect<s32> &sourceRect, const core::rect<s32> *clipRect = 0,
 			const video::SColor *const colors = 0, bool useAlphaChannelOfTexture = false) override;
 
+	//! Draw a 2d rectangle with rounded corners where each corner has a different radius
+	void draw2DRoundedRectangle(const core::rect<s32> &pos, SColor color, s32 radiusTopLeft, s32 radiusTopRight, s32 radiusBottomRight, s32 radiusBottomLeft, const core::rect<s32> *clip = 0) override;
+	
+	//! Draw a 2d rectangle with rounded corners
+	void draw2DRoundedRectangle(const core::rect<s32> &pos, SColor color, s32 radius, const core::rect<s32> *clip = 0) override;
+
+	//! Draw a 2d rectangle with rounded corners in compatability mode for draw2DRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip)
+	void draw2DRoundedRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip = 0) override;
+
+	//! Draw a 2d rectangle outline with rounded corners where each corner has a different radius
+	void draw2DRoundedRectangleOutline(const core::rect<s32> &pos, SColor color, s32 width, s32 radiusTopLeft, s32 radiusTopRight, s32 radiusBottomRight, s32 radiusBottomLeft, const core::rect<s32> *clip = 0) override;
+
+	//! Draw a 2d rectangle outline with rounded corners
+	void draw2DRoundedRectangleOutline(const core::rect<s32> &pos, SColor color, s32 width, s32 radius, const core::rect<s32> *clip = 0) override;
+
 	//! Draws a 2d rectangle
 	void draw2DRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip = 0) override;
+
+	//! Draws a 2d rectangle outline
+	void draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width = 1) override;
 
 	//! Draws a 2d rectangle with a gradient.
 	virtual void draw2DRectangle(const core::rect<s32> &pos,

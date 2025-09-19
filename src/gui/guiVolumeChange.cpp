@@ -102,7 +102,7 @@ void GUIVolumeChange::drawMenu()
 		return;
 	video::IVideoDriver* driver = Environment->getVideoDriver();
 	video::SColor bgcolor(140, 0, 0, 0);
-	driver->draw2DRectangle(bgcolor, AbsoluteRect, &AbsoluteClippingRect);
+	driver->draw2DRoundedRectangle(bgcolor, AbsoluteRect, &AbsoluteClippingRect);
 	gui::IGUIElement::draw();
 }
 
