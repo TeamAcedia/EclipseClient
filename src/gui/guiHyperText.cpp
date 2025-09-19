@@ -938,7 +938,7 @@ void TextDrawer::draw(const core::rect<s32> &clip_rect,
 	offset.Y += m_voffset;
 
 	if (m_text.background_type == ParsedText::BACKGROUND_COLOR)
-		driver->draw2DRectangle(m_text.background_color, clip_rect);
+		driver->draw2DRoundedRectangle(m_text.background_color, clip_rect);
 
 	for (auto &p : m_text.m_paragraphs) {
 		for (auto &el : p.elements) {

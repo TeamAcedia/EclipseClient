@@ -133,76 +133,150 @@ void EclipseMenu::draw()
 		return;
     
     if (m_is_open) {
-        const s32 pad = 10;
+        const s32 pad = 25;
 
-        // Draw placeholder text with dtime
+        // --- First, measure everything to get total bounds ---
+        s32 total_height = pad; 
+        s32 max_width = 0;
+
+        struct LayoutItem {
+            s32 y_top;
+            s32 height;
+            ModCategory* category = nullptr;
+            Mod* mod = nullptr;
+            ModSetting* setting = nullptr;
+        };
+        core::array<LayoutItem> layout_items;
+
+        // Placeholder text
         std::wstring placeholder_text = std::wstring(L"Eclipse Menu [ dtime: ") +
                                         std::to_wstring((int)(dtime * 1000)) + L" ms]";
         core::dimension2du placeholder_size = font->getDimension(placeholder_text.c_str());
-        core::rect<s32> placeholder_rect(
-            pad, pad,
-            pad + (s32)placeholder_size.Width,
-            pad + (s32)placeholder_size.Height
-        );
+        total_height += placeholder_size.Height + pad;
+        max_width = core::max_(max_width, (s32)placeholder_size.Width);
 
-        driver->draw2DRectangle(current_theme.primary, placeholder_rect);
-        font->draw(placeholder_text.c_str(), placeholder_rect, current_theme.text, true, true, &placeholder_rect);
-
-        // Draw categories, mods, and settings
-        s32 y = pad + placeholder_size.Height + pad;
-
+        // Categories, mods, settings
         for (ModCategory* category : categories) {
-            // Category info
-            std::wstring category_text = std::wstring(L"Category: ") +
-                                        core::stringw(category->m_name.c_str()).c_str();
-            core::dimension2du cat_size = font->getDimension(category_text.c_str());
-            core::rect<s32> cat_rect(pad, y, pad + (s32)cat_size.Width, y + (s32)cat_size.Height);
-            font->draw(category_text.c_str(), cat_rect, current_theme.text, true, true);
-            y += cat_size.Height + pad;
+            core::dimension2du cat_size = font->getDimension(
+                (std::wstring(L"Category: ") + core::stringw(category->m_name.c_str()).c_str()).c_str());
+
+            LayoutItem cat_item;
+            cat_item.y_top = total_height;
+            cat_item.height = cat_size.Height;
+            cat_item.category = category;
+            cat_item.mod = nullptr;
+            cat_item.setting = nullptr;
+            layout_items.push_back(cat_item);
+
+            total_height += cat_size.Height + pad;
+            max_width = core::max_(max_width, (s32)cat_size.Width);
 
             for (Mod* mod : category->mods) {
-                // Mod info
-                std::wstring mod_default_str = mod->m_default ? L"true" : L"false";
+                core::dimension2du mod_size = font->getDimension(
+                    (std::wstring(L"  Mod: ") + core::stringw(mod->m_name.c_str()).c_str()).c_str());
 
-                std::wstring mod_text = std::wstring(L"  Mod: ") +
-                                        core::stringw(mod->m_name.c_str()).c_str() +
-                                        L", ID: " + core::stringw(mod->m_setting_id.c_str()).c_str() +
-                                        L", Desc: " + core::stringw(mod->m_description.c_str()).c_str() +
-                                        L", Icon: " + core::stringw(mod->m_icon.c_str()).c_str() +
-                                        L", Default: " + mod_default_str;
-                core::dimension2du mod_size = font->getDimension(mod_text.c_str());
-                core::rect<s32> mod_rect(pad, y, pad + (s32)mod_size.Width, y + (s32)mod_size.Height);
-                font->draw(mod_text.c_str(), mod_rect, current_theme.text, true, true);
-                y += mod_size.Height + pad;
+                LayoutItem mod_item;
+                mod_item.y_top = total_height;
+                mod_item.height = mod_size.Height;
+                mod_item.category = nullptr;
+                mod_item.mod = mod;
+                mod_item.setting = nullptr;
+                layout_items.push_back(mod_item);
+
+                total_height += mod_size.Height + pad;
+                max_width = core::max_(max_width, (s32)mod_size.Width);
 
                 for (ModSetting* setting : mod->m_mod_settings) {
-                    // Setting info (all fields)
-                    std::wstring setting_text = std::wstring(L"    Setting: ") +
-                                                core::stringw(setting->m_name.c_str()).c_str() +
-                                                L", ID: " + core::stringw(setting->m_setting_id.c_str()).c_str() +
-                                                L", Type: " + core::stringw(setting->m_type.c_str()).c_str() +
-                                                L", Default: " + core::stringw(setting->m_default.c_str()).c_str() +
-                                                L", Desc: " + core::stringw(setting->m_description.c_str()).c_str() +
-                                                L", Min: " + std::wstring(core::stringw(std::to_string(setting->m_min).c_str()).c_str()) +
-                                                L", Max: " + std::wstring(core::stringw(std::to_string(setting->m_max).c_str()).c_str()) +
-                                                L", Steps: " + std::wstring(core::stringw(std::to_string(setting->m_steps).c_str()).c_str()) +
-                                                L", Size: " + std::wstring(core::stringw(std::to_string(setting->m_size).c_str()).c_str());
+                    core::dimension2du set_size = font->getDimension(
+                        (std::wstring(L"    Setting: ") + core::stringw(setting->m_name.c_str()).c_str()).c_str());
 
-                    // Options
-                    if (!setting->m_options.empty()) {
-                        setting_text += L", Options: ";
-                        for (size_t i = 0; i < setting->m_options.size(); ++i) {
-                            setting_text += core::stringw(setting->m_options[i]->c_str()).c_str();
-                            if (i + 1 < setting->m_options.size()) setting_text += L", ";
-                        }
-                    }
+                    LayoutItem set_item;
+                    set_item.y_top = total_height;
+                    set_item.height = set_size.Height;
+                    set_item.category = nullptr;
+                    set_item.mod = nullptr;
+                    set_item.setting = setting;
+                    layout_items.push_back(set_item);
 
-                    core::dimension2du set_size = font->getDimension(setting_text.c_str());
-                    core::rect<s32> set_rect(pad, y, pad + (s32)set_size.Width, y + (s32)set_size.Height);
-                    font->draw(setting_text.c_str(), set_rect, current_theme.text, true, true);
-                    y += set_size.Height + pad;
+                    total_height += set_size.Height + pad;
+                    max_width = core::max_(max_width, (s32)set_size.Width);
                 }
             }
         }
+
+        // --- Centering ---
+        s32 screen_width = driver->getScreenSize().Width;
+        s32 screen_height = driver->getScreenSize().Height;
+        s32 offset_x = (screen_width - (max_width + pad*2)) / 2;
+        s32 offset_y = (screen_height - total_height) / 2;
+
+        // --- Draw overall background ---
+        core::rect<s32> bg_rect(offset_x, offset_y, offset_x + pad + max_width + pad, offset_y + total_height);
+        driver->draw2DRoundedRectangle(bg_rect, current_theme.background_bottom, 20);
+        driver->draw2DRoundedRectangleOutline(bg_rect, current_theme.border, 2, 20);
+
+        // --- Draw placeholder text ---
+        core::rect<s32> placeholder_rect(offset_x + pad, offset_y + pad,
+                                        offset_x + pad + (s32)placeholder_size.Width,
+                                        offset_y + pad + (s32)placeholder_size.Height);
+        font->draw(placeholder_text.c_str(), placeholder_rect, current_theme.text, true, true, &placeholder_rect);
+
+        // --- Draw layout items with category/mod boxes ---
+        s32 y = offset_y + pad + placeholder_size.Height + pad;
+        for (u32 idx = 0; idx < layout_items.size(); ++idx) {
+            LayoutItem& item = layout_items[idx];
+            if (item.category) {
+                // Draw a big box covering the category + all mods/settings
+                s32 cat_top = y;
+                s32 cat_bottom = y;
+                // Find the bottom of this category by looking ahead in layout_items
+                for (u32 i = idx + 1; i < layout_items.size(); ++i) {
+                    if (layout_items[i].category) break;
+                    cat_bottom = offset_y + layout_items[i].y_top + layout_items[i].height + pad;
+                }
+                core::rect<s32> cat_box(offset_x + pad/2, cat_top, offset_x + pad + max_width + pad/2, cat_bottom);
+                driver->draw2DRoundedRectangle(cat_box, current_theme.background, 20);
+                driver->draw2DRoundedRectangleOutline(cat_box, current_theme.border, 2, 20);
+
+                // Draw category text
+                core::dimension2du cat_size = font->getDimension(
+                    (std::wstring(L"Category: ") + core::stringw(item.category->m_name.c_str()).c_str()).c_str());
+                core::rect<s32> cat_text_rect(offset_x + pad, y, offset_x + pad + (s32)cat_size.Width, y + (s32)cat_size.Height);
+                font->draw((std::wstring(L"Category: ") + core::stringw(item.category->m_name.c_str()).c_str()).c_str(),
+                        cat_text_rect, current_theme.text, true, true);
+                y += cat_size.Height + pad;
+            } 
+            else if (item.mod) {
+                // Draw medium box for mod + settings
+                s32 mod_top = y;
+                s32 mod_bottom = mod_top;
+                // Look ahead for settings
+                for (u32 i = idx + 1; i < layout_items.size(); ++i) {
+                    if (layout_items[i].category || layout_items[i].mod) break;
+                    mod_bottom = offset_y + layout_items[i].y_top + layout_items[i].height + pad;
+                }
+                core::rect<s32> mod_box(offset_x + pad, mod_top, offset_x + pad + max_width, mod_bottom);
+                driver->draw2DRoundedRectangle(mod_box, current_theme.background_top, 15);
+                driver->draw2DRoundedRectangleOutline(mod_box, current_theme.border, 1, 15);
+
+                // Draw mod text
+                core::dimension2du mod_size = font->getDimension(
+                    (std::wstring(L"  Mod: ") + core::stringw(item.mod->m_name.c_str()).c_str()).c_str());
+                core::rect<s32> mod_text_rect(offset_x + pad, y, offset_x + pad + (s32)mod_size.Width, y + (s32)mod_size.Height);
+                font->draw((std::wstring(L"  Mod: ") + core::stringw(item.mod->m_name.c_str()).c_str()).c_str(),
+                        mod_text_rect, current_theme.text, true, true);
+                y += mod_size.Height + pad;
+            } 
+            else if (item.setting) {
+                // Just draw setting text
+                core::dimension2du set_size = font->getDimension(
+                    (std::wstring(L"    Setting: ") + core::stringw(item.setting->m_name.c_str()).c_str()).c_str());
+                core::rect<s32> set_rect(offset_x + pad, y, offset_x + pad + (s32)set_size.Width, y + (s32)set_size.Height);
+                font->draw((std::wstring(L"    Setting: ") + core::stringw(item.setting->m_name.c_str()).c_str()).c_str(),
+                        set_rect, current_theme.text, true, true);
+                y += set_size.Height + pad;
+            }
+        }
     }
+
 } 

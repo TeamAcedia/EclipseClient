@@ -661,10 +661,334 @@ void CNullDriver::draw2DImage(const video::ITexture *texture, const core::positi
 {
 }
 
+//! Draw a 2d rectangle outline with rounded corners where each corner has a different radius
+void CNullDriver::draw2DRoundedRectangleOutline(
+    const core::rect<s32> &pos,
+    SColor color,
+    s32 width,
+    s32 radiusTopLeft,
+    s32 radiusTopRight,
+    s32 radiusBottomRight,
+    s32 radiusBottomLeft,
+    const core::rect<s32> *clip)
+{
+    auto clampToClip = [&](f32 &x, f32 &y) {
+        if (clip && clip->getArea() != 0)
+        {
+            x = core::clamp((s32)x, clip->UpperLeftCorner.X, clip->LowerRightCorner.X);
+            y = core::clamp((s32)y, clip->UpperLeftCorner.Y, clip->LowerRightCorner.Y);
+        }
+    };
+
+    if (width <= 0)
+        return; // nothing to draw
+
+    s32 w = pos.getWidth();
+    s32 h = pos.getHeight();
+
+    // Clamp radii to half width/height
+    radiusTopLeft     = core::min_(radiusTopLeft, core::min_(w/2, h/2));
+    radiusTopRight    = core::min_(radiusTopRight, core::min_(w/2, h/2));
+    radiusBottomRight = core::min_(radiusBottomRight, core::min_(w/2, h/2));
+    radiusBottomLeft  = core::min_(radiusBottomLeft, core::min_(w/2, h/2));
+
+    core::array<video::S3DVertex> verts;
+    core::array<u16> indices;
+
+    auto addQuad = [&](f32 ax, f32 ay, f32 bx, f32 by, f32 cx, f32 cy, f32 dx, f32 dy)
+    {
+        u16 base = verts.size();
+        clampToClip(ax, ay);
+        clampToClip(bx, by);
+        clampToClip(cx, cy);
+        clampToClip(dx, dy);
+        verts.push_back(video::S3DVertex(ax, ay, 0,0,0,-1,color,0,0));
+        verts.push_back(video::S3DVertex(bx, by, 0,0,0,-1,color,0,0));
+        verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
+        verts.push_back(video::S3DVertex(dx, dy, 0,0,0,-1,color,0,0));
+        u16 idx[6] = {base, (u16)(base+1), (u16)(base+2), base, (u16)(base+2), (u16)(base+3)};
+        for(int i=0;i<6;i++) indices.push_back(idx[i]);
+    };
+
+    auto addCornerArc = [&](f32 cx, f32 cy, s32 radiusOuter, s32 radiusInner, f32 startAngle)
+    {
+        if(radiusOuter <= 0)
+            return;
+
+        int segments = core::max_(8, radiusOuter/2);
+        u16 base = verts.size();
+
+        for(int i=0;i<=segments;i++)
+        {
+            f32 ang = startAngle + (core::PI/2.f) * ((f32)i / segments);
+            f32 cosA = cosf(ang);
+            f32 sinA = sinf(ang);
+
+            f32 xOuter = cx + cosA * radiusOuter;
+            f32 yOuter = cy + sinA * radiusOuter;
+            f32 xInner = cx + cosA * core::max_(radiusOuter - width, 0);
+            f32 yInner = cy + sinA * core::max_(radiusOuter - width, 0);
+
+            clampToClip(xOuter, yOuter);
+            clampToClip(xInner, yInner);
+
+            verts.push_back(video::S3DVertex(xOuter, yOuter, 0,0,0,-1,color,0,0));
+            verts.push_back(video::S3DVertex(xInner, yInner, 0,0,0,-1,color,0,0));
+        }
+
+        for(int i=0;i<segments;i++)
+        {
+            u16 i0 = base + i*2;
+            u16 i1 = base + i*2 + 1;
+            u16 i2 = base + i*2 + 2;
+            u16 i3 = base + i*2 + 3;
+            indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
+            indices.push_back(i2); indices.push_back(i3); indices.push_back(i1);
+        }
+    };
+
+    // Top
+    addQuad(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y,
+            pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y,
+            pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + width,
+            pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + width);
+
+    // Bottom
+    addQuad(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - width,
+            pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - width,
+            pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y,
+            pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y);
+
+    // Left
+    addQuad(pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + radiusTopLeft,
+            pos.UpperLeftCorner.X + width, pos.UpperLeftCorner.Y + radiusTopLeft,
+            pos.UpperLeftCorner.X + width, pos.LowerRightCorner.Y - radiusBottomLeft,
+            pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - radiusBottomLeft);
+
+    // Right
+    addQuad(pos.LowerRightCorner.X - width, pos.UpperLeftCorner.Y + radiusTopRight,
+            pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + radiusTopRight,
+            pos.LowerRightCorner.X, pos.LowerRightCorner.Y - radiusBottomRight,
+            pos.LowerRightCorner.X - width, pos.LowerRightCorner.Y - radiusBottomRight);
+
+    // Corners
+    addCornerArc(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft, radiusTopLeft, width, core::PI);
+    addCornerArc(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight, radiusTopRight, width, -core::PI/2.f);
+    addCornerArc(pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight, radiusBottomRight, width, 0.f);
+    addCornerArc(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft, radiusBottomLeft, width, core::PI/2.f);
+
+    // Submit
+    SMaterial m;
+    m.ZBuffer = ECFN_NEVER;
+    m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
+    setMaterial(m);
+
+    draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
+                               indices.const_pointer(), indices.size()/3,
+                               EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
+}
+
+//! Draw a 2d rectangle outline with rounded corners
+void CNullDriver::draw2DRoundedRectangleOutline(
+    const core::rect<s32> &pos,
+    SColor color,
+    s32 width,
+    s32 radius,
+    const core::rect<s32> *clip)
+{
+	draw2DRoundedRectangleOutline(pos, color, width, radius, radius, radius, radius, clip);
+}
+
+//! Draw a 2d rectangle with rounded corners where each corner has a different radius
+void CNullDriver::draw2DRoundedRectangle(
+    const core::rect<s32> &pos,
+    SColor color,
+    s32 radiusTopLeft,
+    s32 radiusTopRight,
+    s32 radiusBottomRight,
+    s32 radiusBottomLeft,
+    const core::rect<s32> *clip)
+{
+    auto clampToClip = [&](f32 &x, f32 &y) {
+        if (clip && clip->getArea() != 0)
+        {
+            x = core::clamp((s32)x, clip->UpperLeftCorner.X, clip->LowerRightCorner.X);
+            y = core::clamp((s32)y, clip->UpperLeftCorner.Y, clip->LowerRightCorner.Y);
+        }
+    };
+
+    // Fallback for non-rounded rectangle
+    if (radiusTopLeft <= 0 && radiusTopRight <= 0 && radiusBottomRight <= 0 && radiusBottomLeft <= 0)
+    {
+        video::S3DVertex v[4] = {
+            video::S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0,0,-1, color,0,0),
+            video::S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.UpperLeftCorner.Y, 0,0,0,-1, color,1,0),
+            video::S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.LowerRightCorner.Y, 0,0,0,-1, color,1,1),
+            video::S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.LowerRightCorner.Y, 0,0,0,-1, color,0,1)
+        };
+        for (int i = 0; i < 4; ++i) clampToClip(v[i].Pos.X, v[i].Pos.Y);
+
+        u16 indices[6] = {0,1,2, 0,2,3};
+        SMaterial m;
+        m.ZBuffer = ECFN_NEVER;
+        m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
+        setMaterial(m);
+        draw2DVertexPrimitiveList(v, 4, indices, 2, EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
+        return;
+    }
+
+    // Clamp radii to half width/height
+    s32 w = pos.getWidth();
+    s32 h = pos.getHeight();
+    radiusTopLeft     = core::min_(radiusTopLeft, core::min_(w/2, h/2));
+    radiusTopRight    = core::min_(radiusTopRight, core::min_(w/2, h/2));
+    radiusBottomRight = core::min_(radiusBottomRight, core::min_(w/2, h/2));
+    radiusBottomLeft  = core::min_(radiusBottomLeft, core::min_(w/2, h/2));
+
+    core::array<video::S3DVertex> verts;
+    core::array<u16> indices;
+
+    auto addQuad = [&](f32 ax, f32 ay, f32 bx, f32 by, f32 cx, f32 cy, f32 dx, f32 dy)
+    {
+        u16 base = verts.size();
+		clampToClip(ax, ay);
+		clampToClip(bx, by);
+		clampToClip(cx, cy);
+		clampToClip(dx, dy);
+        verts.push_back(video::S3DVertex(ax, ay, 0,0,0,-1,color,0,0));
+        verts.push_back(video::S3DVertex(bx, by, 0,0,0,-1,color,0,0));
+        verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
+        verts.push_back(video::S3DVertex(dx, dy, 0,0,0,-1,color,0,0));
+        u16 idx[6] = {base, (u16)(base+1), (u16)(base+2), base, (u16)(base+2), (u16)(base+3)};
+        for(int i=0;i<6;i++) indices.push_back(idx[i]);
+    };
+
+    auto addCorner = [&](f32 cx, f32 cy, s32 radius, f32 startAngle)
+    {
+        if(radius <= 0) return;
+
+        // dynamic segment count proportional to radius
+        int segments = core::max_(8, radius/2);
+
+        u16 base = verts.size();
+		clampToClip(cx, cy);
+        verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
+
+        for(int i=0;i<=segments;i++)
+        {
+            f32 ang = startAngle + (core::PI/2.f) * ((f32)i / segments);
+            f32 x = cx + cosf(ang) * radius;
+            f32 y = cy + sinf(ang) * radius;
+			clampToClip(x, y);
+            verts.push_back(video::S3DVertex(x, y, 0,0,0,-1,color,0,0));
+        }
+
+        for(int i=0;i<segments;i++)
+        {
+            indices.push_back(base);
+            indices.push_back(base+1+i);
+            indices.push_back(base+2+i);
+        }
+    };
+
+    // Center quad (trimmed by corner radii)
+    addQuad(
+        pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft,
+        pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight,
+        pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight,
+        pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft
+    );
+
+    // Side bars
+    if(radiusTopLeft > 0 || radiusBottomLeft > 0)
+        addQuad(pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + radiusTopLeft,
+                pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft,
+                pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft,
+                pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - radiusBottomLeft);
+
+    if(radiusTopRight > 0 || radiusBottomRight > 0)
+        addQuad(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight,
+                pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + radiusTopRight,
+                pos.LowerRightCorner.X, pos.LowerRightCorner.Y - radiusBottomRight,
+                pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight);
+
+    if(radiusTopLeft > 0 || radiusTopRight > 0)
+        addQuad(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y,
+                pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y,
+                pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + core::max_(radiusTopLeft, radiusTopRight),
+                pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + core::max_(radiusTopLeft, radiusTopRight));
+
+    if(radiusBottomLeft > 0 || radiusBottomRight > 0)
+        addQuad(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - core::max_(radiusBottomLeft, radiusBottomRight),
+                pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - core::max_(radiusBottomLeft, radiusBottomRight),
+                pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y,
+                pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y);
+
+    // Rounded corners
+    addCorner(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft, radiusTopLeft, core::PI);
+    addCorner(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight, radiusTopRight, -core::PI/2.f);
+    addCorner(pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight, radiusBottomRight, 0.f);
+    addCorner(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft, radiusBottomLeft, core::PI/2.f);
+
+    // Submit
+    SMaterial m;
+    m.ZBuffer = ECFN_NEVER;
+    m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
+    setMaterial(m);
+
+    draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
+                               indices.const_pointer(), indices.size()/3,
+                               EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
+}
+
+
+void CNullDriver::draw2DRoundedRectangle(const core::rect<s32> &pos, SColor color, s32 radius, const core::rect<s32> *clip)
+{
+	draw2DRoundedRectangle(pos, color, radius, radius, radius, radius, clip);
+}
+
+
+
+//! Draw a 2d rectangle with rounded corners in compatability mode for draw2DRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip)
+void CNullDriver::draw2DRoundedRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip)
+{
+	draw2DRoundedRectangle(pos, color, 5, clip);
+}
+
 //! Draw a 2d rectangle
 void CNullDriver::draw2DRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip)
 {
 	draw2DRectangle(pos, color, color, color, color, clip);
+}
+
+//! Draw a 2d rectangle outline
+void CNullDriver::draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width)
+{
+	if (width <= 1) {
+		draw2DLine(pos.UpperLeftCorner, core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), color);
+		draw2DLine(core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), pos.LowerRightCorner, color);
+		draw2DLine(pos.LowerRightCorner, core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), color);
+		draw2DLine(core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), pos.UpperLeftCorner, color);
+	}
+	
+	core::recti topRect(
+		pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y, 
+		pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + width);
+	core::recti bottomRect(
+		pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - width, 
+		pos.LowerRightCorner.X, pos.LowerRightCorner.Y);
+	core::recti leftRect(
+		pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + width, 
+		pos.UpperLeftCorner.X + width, pos.LowerRightCorner.Y - width);
+	core::recti rightRect(
+		pos.LowerRightCorner.X - width, pos.UpperLeftCorner.Y + width, 
+		pos.LowerRightCorner.X, pos.LowerRightCorner.Y - width);
+
+	// Draw the rectangles
+	draw2DRectangle(color, topRect);
+	draw2DRectangle(color, bottomRect);
+	draw2DRectangle(color, leftRect);
+	draw2DRectangle(color, rightRect);
 }
 
 //! Draws a 2d rectangle with a gradient.

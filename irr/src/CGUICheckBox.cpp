@@ -105,7 +105,7 @@ void CGUICheckBox::draw()
 		// draw background
 		if (Background) {
 			video::SColor bgColor = skin->getColor(gui::EGDC_3D_FACE);
-			driver->draw2DRectangle(bgColor, frameRect, &AbsoluteClippingRect);
+			driver->draw2DRoundedRectangle(bgColor, frameRect, &AbsoluteClippingRect);
 		}
 
 		// draw the border

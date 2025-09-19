@@ -55,7 +55,7 @@ void StaticText::draw()
 	// draw background
 
 	if (Background)
-		driver->draw2DRectangle(getBackgroundColor(), frameRect, &AbsoluteClippingRect);
+		driver->draw2DRoundedRectangle(getBackgroundColor(), frameRect, &AbsoluteClippingRect);
 
 	// draw the border
 
