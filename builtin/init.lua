@@ -41,12 +41,14 @@ minetest = core
 local scriptdir = core.get_builtin_path()
 local commonpath = scriptdir .. "common" .. DIR_DELIM
 local asyncpath = scriptdir .. "async" .. DIR_DELIM
+local eclipsepath = scriptdir.."eclipse"..DIR_DELIM
 
 dofile(commonpath .. "math.lua")
 dofile(commonpath .. "vector.lua")
 dofile(commonpath .. "strict.lua")
 dofile(commonpath .. "serialize.lua")
 dofile(commonpath .. "misc_helpers.lua")
+dofile(eclipsepath .. "mods.lua")
 
 if INIT == "game" then
 	dofile(scriptdir .. "game" .. DIR_DELIM .. "init.lua")
