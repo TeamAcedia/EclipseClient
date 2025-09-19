@@ -395,6 +395,8 @@ public:
 	Unless you create your own GUI elements removing themselves you won't need it.
 	\param element: Element to remove */
 	virtual void addToDeletionQueue(IGUIElement *element) = 0;
+
+	bool is_eclipse_menu_open = false;
 };
 
 } // end namespace gui

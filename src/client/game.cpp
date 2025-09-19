@@ -1079,7 +1079,7 @@ bool Game::initGui()
 	chat_backend->applySettings();
 
 	// Init Eclipse Menu
-	eclipse_menu = new EclipseMenu(guienv, guienv->getRootGUIElement(), -1, &g_menumgr, client);
+	eclipse_menu = new EclipseMenu(guienv, guienv->getRootGUIElement(), -1, &g_menumgr, client, false);
 	if (!eclipse_menu) {
 		errorstream << "Could not allocate memory for eclipse menu" << std::endl;
 		return false;
