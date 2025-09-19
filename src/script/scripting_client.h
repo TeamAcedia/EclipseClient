@@ -12,6 +12,7 @@
 #include "cpp_api/s_client_common.h"
 #include "cpp_api/s_modchannels.h"
 #include "cpp_api/s_security.h"
+#include "cpp_api/s_eclipse_mods.h"
 
 class Client;
 class LocalPlayer;
@@ -23,7 +24,8 @@ class ClientScripting:
 	public ScriptApiSecurity,
 	public ScriptApiClientCommon,
 	public ScriptApiClient,
-	public ScriptApiModChannels
+	public ScriptApiModChannels,
+	public ScriptApiEclipseMods
 {
 public:
 	ClientScripting(Client *client);

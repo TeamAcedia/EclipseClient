@@ -8,6 +8,7 @@
 #include "cpp_api/s_mainmenu.h"
 #include "cpp_api/s_security.h"
 #include "cpp_api/s_async.h"
+#include "cpp_api/s_eclipse_mods.h"
 
 /*****************************************************************************/
 /* Scripting <-> Main Menu Interface                                         */
@@ -16,7 +17,8 @@
 class MainMenuScripting
 		: virtual public ScriptApiBase,
 		  public ScriptApiMainMenu,
-		  public ScriptApiSecurity
+		  public ScriptApiSecurity,
+		  public ScriptApiEclipseMods
 {
 public:
 	MainMenuScripting(GUIEngine* guiengine);

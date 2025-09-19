@@ -190,9 +190,15 @@ GUIEngine::GUIEngine(JoystickController *joystick,
 			errorstream << "No future without main menu!" << std::endl;
 			abort();
 		}
+
+		// Init Eclipse Mod Categories
+		m_script->init_mods_mainmenu();
+
+		// Debug: print all mods and their settings
+		// m_script->print_all_mod_settings();
 		
 		// Init Eclipse Menu
-		eclipse_menu = new EclipseMenu(m_rendering_engine->get_gui_env(), m_parent, -1, m_menumanager, nullptr);
+		eclipse_menu = new EclipseMenu(m_rendering_engine->get_gui_env(), m_parent, -1, m_menumanager, m_script.get(), true);
 
 		run();
 	} catch (LuaError &e) {
