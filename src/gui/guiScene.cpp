@@ -74,10 +74,11 @@ void GUIScene::draw()
 	m_driver->setViewPort(getAbsoluteClippingRect());
 
 	if (m_bgcolor != 0) {
-		core::recti borderRect =
-				Environment->getRootGUIElement()->getAbsoluteClippingRect();
-		Environment->getSkin()->draw3DSunkenPane(
-			this, m_bgcolor, false, true, borderRect, 0);
+		core::recti borderRect = Environment->getRootGUIElement()->getAbsoluteClippingRect();
+		//Environment->getSkin()->draw3DSunkenPane(
+		//	this, m_bgcolor, false, true, borderRect, 0);
+
+		m_driver->draw2DRoundedRectangle(m_bgcolor, borderRect, &AbsoluteClippingRect);
 	}
 
 	core::dimension2d<s32> size = getAbsoluteClippingRect().getSize();
