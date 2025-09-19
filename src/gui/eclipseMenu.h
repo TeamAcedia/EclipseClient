@@ -23,28 +23,45 @@
 #include "settings.h"
 #include "porting.h"
 #include "filesys.h"
+#include "scripting_mainmenu.h"
 
 using namespace gui;
 
-#define GET_SCRIPT_POINTER                                                   \
-    ClientScripting *script = m_client->getScript();                         \
-    if (!script)                                 \
-        return;
+#define GET_CATEGORIES_OR_RETURN(categories)                \
+    std::vector<ModCategory*> categories;                   \
+    if (!m_is_main_menu) {                                  \
+        if (!m_client)                                      \
+            return;                                         \
+        ClientScripting* script = m_client->getScript();    \
+        if (!script)                                        \
+            return;                                         \
+        categories = script->m_categories;                  \
+    } else {                                                \
+        if (!m_script)                                      \
+            return;                                         \
+        categories = m_script->m_categories;                \
+    }
 
-#define GET_SCRIPT_POINTER_S32                                               \
-    ClientScripting *script = m_client->getScript();                         \
-    if (!script)                                 \
-        return s32(0);
-
-#define GET_SCRIPT_POINTER_BOOL                                              \
-    ClientScripting *script = m_client->getScript();                         \
-    if (!script)                                 \
-        return true;   
+#define GET_CATEGORIES_OR_RETURN_BOOL(categories)           \
+    std::vector<ModCategory*> categories;                   \
+    if (!m_is_main_menu) {                                  \
+        if (!m_client)                                      \
+            return false;                                   \
+        ClientScripting* script = m_client->getScript();    \
+        if (!script)                                        \
+            return false;                                   \
+        categories = script->m_categories;                  \
+    } else {                                                \
+        if (!m_script)                                      \
+            return false;                                   \
+        categories = m_script->m_categories;                \
+    }
 
 class EclipseMenu: public IGUIElement
 {
 public:
-    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client);
+    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu);
+    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu);
 
     void create();
     void close();
@@ -65,6 +82,7 @@ private:
     IMenuManager* m_menumgr; 
     Client* m_client;
     gui::IGUIEnvironment* env;
+    MainMenuScripting* m_script = nullptr;
 
     bool m_is_open = false; 
 	bool m_is_main_menu = false;

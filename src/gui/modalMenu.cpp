@@ -68,7 +68,7 @@ bool GUIModalMenu::canTakeFocus(gui::IGUIElement *e)
 
 void GUIModalMenu::draw()
 {
-	if (!IsVisible)
+	if (!IsVisible && Environment->is_eclipse_menu_open == false)
 		return;
 
 	video::IVideoDriver *driver = Environment->getVideoDriver();

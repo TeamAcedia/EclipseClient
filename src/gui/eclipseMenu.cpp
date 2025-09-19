@@ -16,15 +16,34 @@ float EclipseMenu::getDeltaTime() {
 }
 
 EclipseMenu::EclipseMenu(
+    gui::IGUIEnvironment *env, 
+    gui::IGUIElement *parent, 
+    s32 id, 
+    IMenuManager *menumgr, 
+    MainMenuScripting *script,
+    bool is_main_menu
+)
+    : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)), 
+    m_menumgr(menumgr),
+    m_script(script),
+    m_is_main_menu(is_main_menu)
+{
+    infostream << "[EclipseMenu] Successfully created" << std::endl;
+    this->env = env;
+}
+
+EclipseMenu::EclipseMenu(
 	gui::IGUIEnvironment* env, 
     gui::IGUIElement* parent, 
     s32 id, 
 	IMenuManager* menumgr, 
-    Client* client
+    Client* client,
+    bool is_main_menu
 )
     : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)), 
     m_menumgr(menumgr),
-    m_client(client)
+    m_client(client),
+    m_is_main_menu(is_main_menu)
 {    
     infostream << "[EclipseMenu] Successfully created" << std::endl;
     this->env = env;
@@ -37,7 +56,7 @@ EclipseMenu::~EclipseMenu()
 
 void EclipseMenu::create()
 {
-    //GET_SCRIPT_POINTER
+    GET_CATEGORIES_OR_RETURN(categories);
 
     if (!m_initialized) {
         themes_path = porting::path_user + DIR_DELIM + "themes";
@@ -74,7 +93,7 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         return false;
     }
 
-    // GET_SCRIPT_POINTER_BOOL  
+    GET_CATEGORIES_OR_RETURN_BOOL(categories);
 
     if (event.EventType == EET_KEY_INPUT_EVENT)
     {
@@ -96,20 +115,17 @@ bool EclipseMenu::OnEvent(const SEvent& event)
 
 void EclipseMenu::draw() 
 {
-	if (!m_client || m_client == nullptr) {
-		m_is_main_menu = true; // Make sure we know we are running in the main menu so some functionionality may need to be disabled.
-	} else {
-		GET_SCRIPT_POINTER // If we aren't in mainmenu, get the script pointer to csm
-	}
-		
+    GET_CATEGORIES_OR_RETURN(categories);
 
 	// Initialize some basic variables
 
-    // float dtime = getDeltaTime();
+    Environment->is_eclipse_menu_open = m_is_open;
+
+    float dtime = getDeltaTime();
 
     video::IVideoDriver* driver = Environment->getVideoDriver();
 
-    const core::dimension2du screensize = driver->getScreenSize();
+    // const core::dimension2du screensize = driver->getScreenSize();
 
     gui::IGUIFont* font = g_fontengine->getFont(FONT_SIZE_UNSPECIFIED, FM_Standard);
 
@@ -117,27 +133,76 @@ void EclipseMenu::draw()
 		return;
     
     if (m_is_open) {
-		// Draw placeholder text to verify it's working
-		std::wstring text = L"Eclipse Menu OPEN";
-		core::dimension2du text_size = font->getDimension(text.c_str());
+        const s32 pad = 10;
 
-		const s32 pad = 10;
+        // Draw placeholder text with dtime
+        std::wstring placeholder_text = std::wstring(L"Eclipse Menu [ dtime: ") +
+                                        std::to_wstring((int)(dtime * 1000)) + L" ms]";
+        core::dimension2du placeholder_size = font->getDimension(placeholder_text.c_str());
+        core::rect<s32> placeholder_rect(
+            pad, pad,
+            pad + (s32)placeholder_size.Width,
+            pad + (s32)placeholder_size.Height
+        );
 
-		s32 x1 = (screensize.Width  - (s32)text_size.Width)  / 2 - pad;
-		s32 y1 = (screensize.Height - (s32)text_size.Height) / 2 - pad;
-		s32 x2 = x1 + (s32)text_size.Width  + pad * 2;
-		s32 y2 = y1 + (s32)text_size.Height + pad * 2;
+        driver->draw2DRectangle(current_theme.primary, placeholder_rect);
+        font->draw(placeholder_text.c_str(), placeholder_rect, current_theme.text, true, true, &placeholder_rect);
 
-		core::rect<s32> box_rect(x1, y1, x2, y2);
+        // Draw categories, mods, and settings
+        s32 y = pad + placeholder_size.Height + pad;
 
-		driver->draw2DRectangle(current_theme.primary, box_rect);
+        for (ModCategory* category : categories) {
+            // Category info
+            std::wstring category_text = std::wstring(L"Category: ") +
+                                        core::stringw(category->m_name.c_str()).c_str();
+            core::dimension2du cat_size = font->getDimension(category_text.c_str());
+            core::rect<s32> cat_rect(pad, y, pad + (s32)cat_size.Width, y + (s32)cat_size.Height);
+            font->draw(category_text.c_str(), cat_rect, current_theme.text, true, true);
+            y += cat_size.Height + pad;
 
-		core::rect<s32> text_rect(
-			x1, y1,
-			x2, y2
-		);
+            for (Mod* mod : category->mods) {
+                // Mod info
+                std::wstring mod_default_str = mod->m_default ? L"true" : L"false";
 
-		font->draw(text.c_str(), text_rect, current_theme.text, true, true, &box_rect);
-		return;
-	}
+                std::wstring mod_text = std::wstring(L"  Mod: ") +
+                                        core::stringw(mod->m_name.c_str()).c_str() +
+                                        L", ID: " + core::stringw(mod->m_setting_id.c_str()).c_str() +
+                                        L", Desc: " + core::stringw(mod->m_description.c_str()).c_str() +
+                                        L", Icon: " + core::stringw(mod->m_icon.c_str()).c_str() +
+                                        L", Default: " + mod_default_str;
+                core::dimension2du mod_size = font->getDimension(mod_text.c_str());
+                core::rect<s32> mod_rect(pad, y, pad + (s32)mod_size.Width, y + (s32)mod_size.Height);
+                font->draw(mod_text.c_str(), mod_rect, current_theme.text, true, true);
+                y += mod_size.Height + pad;
+
+                for (ModSetting* setting : mod->m_mod_settings) {
+                    // Setting info (all fields)
+                    std::wstring setting_text = std::wstring(L"    Setting: ") +
+                                                core::stringw(setting->m_name.c_str()).c_str() +
+                                                L", ID: " + core::stringw(setting->m_setting_id.c_str()).c_str() +
+                                                L", Type: " + core::stringw(setting->m_type.c_str()).c_str() +
+                                                L", Default: " + core::stringw(setting->m_default.c_str()).c_str() +
+                                                L", Desc: " + core::stringw(setting->m_description.c_str()).c_str() +
+                                                L", Min: " + std::wstring(core::stringw(std::to_string(setting->m_min).c_str()).c_str()) +
+                                                L", Max: " + std::wstring(core::stringw(std::to_string(setting->m_max).c_str()).c_str()) +
+                                                L", Steps: " + std::wstring(core::stringw(std::to_string(setting->m_steps).c_str()).c_str()) +
+                                                L", Size: " + std::wstring(core::stringw(std::to_string(setting->m_size).c_str()).c_str());
+
+                    // Options
+                    if (!setting->m_options.empty()) {
+                        setting_text += L", Options: ";
+                        for (size_t i = 0; i < setting->m_options.size(); ++i) {
+                            setting_text += core::stringw(setting->m_options[i]->c_str()).c_str();
+                            if (i + 1 < setting->m_options.size()) setting_text += L", ";
+                        }
+                    }
+
+                    core::dimension2du set_size = font->getDimension(setting_text.c_str());
+                    core::rect<s32> set_rect(pad, y, pad + (s32)set_size.Width, y + (s32)set_size.Height);
+                    font->draw(setting_text.c_str(), set_rect, current_theme.text, true, true);
+                    y += set_size.Height + pad;
+                }
+            }
+        }
+    }
 } 
