@@ -113,6 +113,26 @@ bool EclipseMenu::OnEvent(const SEvent& event)
     return Parent ? Parent->OnEvent(event) : false; 
 }
 
+// Simple helper to draw a rounded rectangle with a drop shadow
+void drawShadowedRoundedRect(
+    video::IVideoDriver* driver, 
+    const core::rect<s32>& rect, 
+    const video::SColor& color, 
+    s32 radiusTopLeft,
+    s32 radiusTopRight,
+    s32 radiusBottomLeft,
+    s32 radiusBottomRight, 
+    const video::SColor& shadow_color, 
+    s32 shadow_offset)
+{
+    core::rect<s32> shadow_rect = rect;
+    shadow_rect.UpperLeftCorner.Y += shadow_offset;
+    shadow_rect.LowerRightCorner.Y += shadow_offset;
+
+    driver->draw2DRoundedRectangle(shadow_rect, shadow_color, radiusTopLeft, radiusTopRight, radiusBottomLeft, radiusBottomRight);
+    driver->draw2DRoundedRectangle(rect, color, radiusTopLeft, radiusTopRight, radiusBottomLeft, radiusBottomRight);
+}
+
 void EclipseMenu::draw() 
 {
     GET_CATEGORIES_OR_RETURN(categories);
