@@ -210,6 +210,10 @@ void EclipseMenu::draw()
 
     Environment->is_eclipse_menu_open = m_is_open;
 
+    if (m_is_open) { // Ensure we always have focus when this window is open, this is dumb but it stops the client from closing when you press escape in main menu with eclipse menu open
+        Environment->setFocus(this);
+    }
+
     float dtime = getDeltaTime();
 
     updateAnimationProgress(dtime);
