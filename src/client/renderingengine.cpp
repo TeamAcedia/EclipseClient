@@ -347,7 +347,7 @@ void RenderingEngine::draw_load_screen(const std::wstring &text,
 
 	video::SColor start_color = current_theme.primary;
 	video::SColor end_color = current_theme.primary_muted;
-	video::SColor background_color = current_theme.background_bottom;
+	video::SColor background_color = current_theme.wallpaper;
 
 	video::SColor colors[layer_count];
 	for (int i = 0; i < layer_count; ++i) {
