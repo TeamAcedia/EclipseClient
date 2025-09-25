@@ -223,7 +223,7 @@ RenderingEngine::RenderingEngine(MyEventReceiver *receiver)
 	themes_path = porting::path_user + DIR_DELIM + "themes";
 	theme_manager = ThemeManager();
 	theme_manager.LoadThemes(themes_path);
-	current_theme_name = g_settings->get("ColorTheme");
+	current_theme_name = g_settings->get("eclipse_appearance.theme");
 	current_theme = theme_manager.GetThemeByName(current_theme_name);
 }
 
