@@ -311,7 +311,7 @@ void GUIEngine::run()
 	themes_path = porting::path_user + DIR_DELIM + "themes";
 	theme_manager = ThemeManager();
 	theme_manager.LoadThemes(themes_path);
-	current_theme_name = g_settings->get("ColorTheme");
+	current_theme_name = g_settings->get("eclipse_appearance.theme");
 	current_theme = theme_manager.GetThemeByName(current_theme_name);
 
 	IrrlichtDevice *device = m_rendering_engine->get_raw_device();
@@ -498,7 +498,7 @@ void GUIEngine::drawBackground(video::IVideoDriver *driver, f32 dtime)
 
 	video::SColor start_color = current_theme.primary;
 	video::SColor end_color = current_theme.primary_muted;
-	video::SColor background_color = current_theme.background_bottom;
+	video::SColor background_color = current_theme.wallpaper;
 
     video::SColor colors[layer_count];
 

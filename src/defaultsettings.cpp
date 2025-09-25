@@ -75,7 +75,7 @@ void set_default_settings()
 	bool has_touch = detect_touch();
 
 	// Eclipse specific
-	settings->setDefault("ColorTheme", "Default");
+	settings->setDefault("eclipse_appearance.theme", "Default");
 
 	// Client and server
 	settings->setDefault("language", "");

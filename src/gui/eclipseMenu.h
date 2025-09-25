@@ -14,6 +14,7 @@
 #include <IVideoDriver.h>
 #include <IGUIFont.h>
 #include <chrono>
+#include <cmath>
 
 #include "client/color_theme.h"
 #include "script/scripting_client.h"
@@ -84,10 +85,28 @@ private:
     gui::IGUIEnvironment* env;
     MainMenuScripting* m_script = nullptr;
 
+    float opening_animation_progress = 0.0;
+
+    void updateAnimationProgress(float dtime);
+
     bool m_is_open = false; 
 	bool m_is_main_menu = false;
+
+    double base_scaling_factor = 100.0;
+    double active_scaling_factor = 0.0;
+
+    void calculateActiveScaling(s32 screen_width, s32 screen_height);
+
+    double applyScalingFactorDouble(double value);
+
+    s32 applyScalingFactorS32(s32 value);
 
     static float getDeltaTime();
 
     static std::chrono::high_resolution_clock::time_point lastTime;
 };
+
+inline float easeInOutCubic(float t) {
+    return (t < 0.5) ? 4 * t * t * t 
+                     : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+}

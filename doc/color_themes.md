@@ -11,6 +11,7 @@ Each theme consists of a set of named color keys, defined in an INI-style `[them
 ```ini
 [theme]
 name = Example Dark Theme
+wallpaper         = hsl(220, 13%, 10%)
 
 background-top    = hsl(220, 13%, 10%)
 background        = hsl(220, 13%, 18%)
@@ -34,6 +35,7 @@ secondary-muted   = hsla(0, 90%, 35%, 0.8)
 
 Each theme must define the following keys:
 
+* `wallpaper`
 * `background-top`
 * `background`
 * `background-bottom`

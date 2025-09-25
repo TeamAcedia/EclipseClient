@@ -33,10 +33,10 @@ EclipseMenu::EclipseMenu(
 }
 
 EclipseMenu::EclipseMenu(
-	gui::IGUIEnvironment* env, 
+    gui::IGUIEnvironment* env, 
     gui::IGUIElement* parent, 
     s32 id, 
-	IMenuManager* menumgr, 
+    IMenuManager* menumgr, 
     Client* client,
     bool is_main_menu
 )
@@ -51,21 +51,44 @@ EclipseMenu::EclipseMenu(
 
 EclipseMenu::~EclipseMenu()
 {
-	infostream << "[EclipseMenu] Successfully deleted" << std::endl;
+    infostream << "[EclipseMenu] Successfully deleted" << std::endl;
 }
+
+void EclipseMenu::calculateActiveScaling(s32 screen_width, s32 screen_height) {
+    // Reference resolution (designed for 2560x1440 @ 100% scale)
+    const double reference_width  = 2560.0;
+    const double reference_height = 1440.0;
+
+    double scale_x = static_cast<double>(screen_width)  / reference_width;
+    double scale_y = static_cast<double>(screen_height) / reference_height;
+
+    double resolution_scale = std::min(scale_x, scale_y);
+
+    active_scaling_factor = base_scaling_factor * resolution_scale;
+}
+
 
 void EclipseMenu::create()
 {
     GET_CATEGORIES_OR_RETURN(categories);
 
     if (!m_initialized) {
+        // Load client theming
         themes_path = porting::path_user + DIR_DELIM + "themes";
         theme_manager = ThemeManager();
         theme_manager.LoadThemes(themes_path);
-        current_theme_name = g_settings->get("ColorTheme");
+        current_theme_name = g_settings->get("eclipse_appearance.theme");
         current_theme = theme_manager.GetThemeByName(current_theme_name);
-		m_initialized = true;
-	}
+
+        // Load client scaling
+        std::string scaling_factor_str = g_settings->get("eclipse_appearance.menu_scale");
+        if (!scaling_factor_str.empty() && scaling_factor_str.back() == '%') {
+            scaling_factor_str.pop_back();
+        }
+        base_scaling_factor = std::stod(scaling_factor_str) / 100.0;
+
+        m_initialized = true;
+    }
 
     core::rect<s32> screenRect(0, 0, 
         Environment->getVideoDriver()->getScreenSize().Width, 
@@ -114,189 +137,148 @@ bool EclipseMenu::OnEvent(const SEvent& event)
 }
 
 // Simple helper to draw a rounded rectangle with a drop shadow
-void drawShadowedRoundedRect(
-    video::IVideoDriver* driver, 
-    const core::rect<s32>& rect, 
-    const video::SColor& color, 
+void drawRoundedRectShadow(
+    video::IVideoDriver* driver,
+    const core::rect<s32>& rect,
+    const video::SColor& color,
     s32 radiusTopLeft,
     s32 radiusTopRight,
     s32 radiusBottomLeft,
-    s32 radiusBottomRight, 
-    const video::SColor& shadow_color, 
-    s32 shadow_offset)
-{
-    core::rect<s32> shadow_rect = rect;
-    shadow_rect.UpperLeftCorner.Y += shadow_offset;
-    shadow_rect.LowerRightCorner.Y += shadow_offset;
+    s32 radiusBottomRight,
+    s32 shadow_offset_y = 4,   // move shadow down
+    s32 shadow_layers = 6,     // more layers = softer
+    float start_opacity = 0.3f // starting opacity
+) {
+    // Draw shadow layers
+    for (s32 i = 0; i < shadow_layers; ++i) {
+        float alpha_factor = start_opacity * (1.0f - (float)i / shadow_layers);
 
-    driver->draw2DRoundedRectangle(shadow_rect, shadow_color, radiusTopLeft, radiusTopRight, radiusBottomLeft, radiusBottomRight);
-    driver->draw2DRoundedRectangle(rect, color, radiusTopLeft, radiusTopRight, radiusBottomLeft, radiusBottomRight);
+        video::SColor layer_color = video::SColor(255, 5, 5, 5);
+        layer_color.setAlpha(static_cast<u8>(layer_color.getAlpha() * alpha_factor));
+
+        // Offset downward slightly per layer
+        core::rect<s32> shadow_rect = rect;
+        shadow_rect.UpperLeftCorner.Y += shadow_offset_y + i;
+        shadow_rect.LowerRightCorner.Y += shadow_offset_y + i;
+
+        driver->draw2DRoundedRectangle(
+            shadow_rect,
+            layer_color,
+            radiusTopLeft,
+            radiusTopRight,
+            radiusBottomRight,
+            radiusBottomLeft
+        );
+    }
+
+    // Draw main rectangle on top
+    driver->draw2DRoundedRectangle(rect, color, radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft);
+}
+
+// Simple helper to apply scaling factor
+s32 EclipseMenu::applyScalingFactorS32(s32 value) {
+    return static_cast<s32>(value * active_scaling_factor);
+}
+
+double EclipseMenu::applyScalingFactorDouble(double value) {
+    return value * active_scaling_factor;
+}
+
+void EclipseMenu::updateAnimationProgress(float dtime) {
+    float speed = 4.0f;
+    if (m_is_open) {
+        opening_animation_progress += speed * dtime;
+        if (opening_animation_progress > 0.99) {
+            opening_animation_progress = 1;
+        }
+    } else {
+        opening_animation_progress -= speed * dtime;
+        if (opening_animation_progress < 0.01) {
+            opening_animation_progress = 0;
+        }
+    }
+
+    // Clamp to 0-1
+    opening_animation_progress = std::clamp(opening_animation_progress, 0.0f, 1.0f);
 }
 
 void EclipseMenu::draw() 
 {
     GET_CATEGORIES_OR_RETURN(categories);
 
-	// Initialize some basic variables
+    // Initialize some basic variables
 
     Environment->is_eclipse_menu_open = m_is_open;
 
     float dtime = getDeltaTime();
 
+    updateAnimationProgress(dtime);
+
+    float eased_opening_progress = easeInOutCubic(opening_animation_progress);
+
     video::IVideoDriver* driver = Environment->getVideoDriver();
 
-    // const core::dimension2du screensize = driver->getScreenSize();
+    const core::dimension2du screensize = driver->getScreenSize();
 
-    gui::IGUIFont* font = g_fontengine->getFont(FONT_SIZE_UNSPECIFIED, FM_Standard);
+    gui::IGUIFont* font = g_fontengine->getFont(applyScalingFactorS32(24), FM_Standard);
 
-	if (!font)
-		return;
+
+    if (!font)
+        return;
     
-    if (m_is_open) {
-        const s32 pad = 25;
+    if (opening_animation_progress != 0) { // Menu is open
+        ColorTheme theme = current_theme.withAlpha(eased_opening_progress);
+        calculateActiveScaling(screensize.Width, screensize.Height);
 
-        // --- First, measure everything to get total bounds ---
-        s32 total_height = pad; 
-        s32 max_width = 0;
+        const core::dimension2di menusize(applyScalingFactorS32(1200), applyScalingFactorS32(static_cast<s32>(700 * eased_opening_progress)));
 
-        struct LayoutItem {
-            s32 y_top;
-            s32 height;
-            ModCategory* category = nullptr;
-            Mod* mod = nullptr;
-            ModSetting* setting = nullptr;
-        };
-        core::array<LayoutItem> layout_items;
+        const core::rect<s32> menurect(
+            (screensize.Width / 2) - (menusize.Width / 2),      //x1
+            (screensize.Height / 2) - (menusize.Height / 2),    //y1
+            (screensize.Width / 2) + (menusize.Width / 2),      //x2
+            (screensize.Height / 2) + (menusize.Height / 2)     //y2
+        );
 
-        // Placeholder text
-        std::wstring placeholder_text = std::wstring(L"Eclipse Menu [ dtime: ") +
-                                        std::to_wstring((int)(dtime * 1000)) + L" ms]";
-        core::dimension2du placeholder_size = font->getDimension(placeholder_text.c_str());
-        total_height += placeholder_size.Height + pad;
-        max_width = core::max_(max_width, (s32)placeholder_size.Width);
+        const s32 section_gap = applyScalingFactorS32(15);
+        const s32 corner_radius = applyScalingFactorS32(25);
+        const s32 top_bar_height = applyScalingFactorS32(55);
 
-        // Categories, mods, settings
-        for (ModCategory* category : categories) {
-            core::dimension2du cat_size = font->getDimension(
-                (std::wstring(L"Category: ") + core::stringw(category->m_name.c_str()).c_str()).c_str());
+        const core::dimension2di profilessize((menusize.Width * 0.25) - (section_gap / 2), menusize.Height - 1);
 
-            LayoutItem cat_item;
-            cat_item.y_top = total_height;
-            cat_item.height = cat_size.Height;
-            cat_item.category = category;
-            cat_item.mod = nullptr;
-            cat_item.setting = nullptr;
-            layout_items.push_back(cat_item);
+        const core::rect<s32> profilesrect(
+            menurect.UpperLeftCorner.X,                         //x1 ( Upper left )
+            menurect.UpperLeftCorner.Y,                         //y1
+            menurect.UpperLeftCorner.X + profilessize.Width,    //x2 ( Lower right )
+            menurect.UpperLeftCorner.Y + profilessize.Height    //y2
+        );
 
-            total_height += cat_size.Height + pad;
-            max_width = core::max_(max_width, (s32)cat_size.Width);
+        const core::rect<s32> profiles_topbar_rect(
+            profilesrect.UpperLeftCorner.X,                         //x1 ( Upper left )
+            profilesrect.UpperLeftCorner.Y,                         //y1
+            profilesrect.LowerRightCorner.X,                        //x2 ( Lower right )
+            profilesrect.UpperLeftCorner.Y + top_bar_height         //y2
+        ); 
 
-            for (Mod* mod : category->mods) {
-                core::dimension2du mod_size = font->getDimension(
-                    (std::wstring(L"  Mod: ") + core::stringw(mod->m_name.c_str()).c_str()).c_str());
+        const core::dimension2di modssize((menusize.Width * 0.75) - (section_gap / 2), menusize.Height - 1);
 
-                LayoutItem mod_item;
-                mod_item.y_top = total_height;
-                mod_item.height = mod_size.Height;
-                mod_item.category = nullptr;
-                mod_item.mod = mod;
-                mod_item.setting = nullptr;
-                layout_items.push_back(mod_item);
+        const core::rect<s32> modsrect(
+            menurect.LowerRightCorner.X - modssize.Width,       //x1 ( Upper left )
+            menurect.UpperLeftCorner.Y,                         //y1
+            menurect.LowerRightCorner.X,                        //x2 ( Lower right )
+            menurect.UpperLeftCorner.Y + modssize.Height        //y2
+        );
 
-                total_height += mod_size.Height + pad;
-                max_width = core::max_(max_width, (s32)mod_size.Width);
+        const core::rect<s32> mods_topbar_rect(
+            modsrect.UpperLeftCorner.X,                         //x1 ( Upper left )
+            modsrect.UpperLeftCorner.Y,                         //y1
+            modsrect.LowerRightCorner.X,                        //x2 ( Lower right )
+            modsrect.UpperLeftCorner.Y + top_bar_height         //y2
+        ); 
 
-                for (ModSetting* setting : mod->m_mod_settings) {
-                    core::dimension2du set_size = font->getDimension(
-                        (std::wstring(L"    Setting: ") + core::stringw(setting->m_name.c_str()).c_str()).c_str());
-
-                    LayoutItem set_item;
-                    set_item.y_top = total_height;
-                    set_item.height = set_size.Height;
-                    set_item.category = nullptr;
-                    set_item.mod = nullptr;
-                    set_item.setting = setting;
-                    layout_items.push_back(set_item);
-
-                    total_height += set_size.Height + pad;
-                    max_width = core::max_(max_width, (s32)set_size.Width);
-                }
-            }
-        }
-
-        // --- Centering ---
-        s32 screen_width = driver->getScreenSize().Width;
-        s32 screen_height = driver->getScreenSize().Height;
-        s32 offset_x = (screen_width - (max_width + pad*2)) / 2;
-        s32 offset_y = (screen_height - total_height) / 2;
-
-        // --- Draw overall background ---
-        core::rect<s32> bg_rect(offset_x, offset_y, offset_x + pad + max_width + pad, offset_y + total_height);
-        driver->draw2DRoundedRectangle(bg_rect, current_theme.background_bottom, 20);
-        driver->draw2DRoundedRectangleOutline(bg_rect, current_theme.border, 2, 20);
-
-        // --- Draw placeholder text ---
-        core::rect<s32> placeholder_rect(offset_x + pad, offset_y + pad,
-                                        offset_x + pad + (s32)placeholder_size.Width,
-                                        offset_y + pad + (s32)placeholder_size.Height);
-        font->draw(placeholder_text.c_str(), placeholder_rect, current_theme.text, true, true, &placeholder_rect);
-
-        // --- Draw layout items with category/mod boxes ---
-        s32 y = offset_y + pad + placeholder_size.Height + pad;
-        for (u32 idx = 0; idx < layout_items.size(); ++idx) {
-            LayoutItem& item = layout_items[idx];
-            if (item.category) {
-                // Draw a big box covering the category + all mods/settings
-                s32 cat_top = y;
-                s32 cat_bottom = y;
-                // Find the bottom of this category by looking ahead in layout_items
-                for (u32 i = idx + 1; i < layout_items.size(); ++i) {
-                    if (layout_items[i].category) break;
-                    cat_bottom = offset_y + layout_items[i].y_top + layout_items[i].height + pad;
-                }
-                core::rect<s32> cat_box(offset_x + pad/2, cat_top, offset_x + pad + max_width + pad/2, cat_bottom);
-                driver->draw2DRoundedRectangle(cat_box, current_theme.background, 20);
-                driver->draw2DRoundedRectangleOutline(cat_box, current_theme.border, 2, 20);
-
-                // Draw category text
-                core::dimension2du cat_size = font->getDimension(
-                    (std::wstring(L"Category: ") + core::stringw(item.category->m_name.c_str()).c_str()).c_str());
-                core::rect<s32> cat_text_rect(offset_x + pad, y, offset_x + pad + (s32)cat_size.Width, y + (s32)cat_size.Height);
-                font->draw((std::wstring(L"Category: ") + core::stringw(item.category->m_name.c_str()).c_str()).c_str(),
-                        cat_text_rect, current_theme.text, true, true);
-                y += cat_size.Height + pad;
-            } 
-            else if (item.mod) {
-                // Draw medium box for mod + settings
-                s32 mod_top = y;
-                s32 mod_bottom = mod_top;
-                // Look ahead for settings
-                for (u32 i = idx + 1; i < layout_items.size(); ++i) {
-                    if (layout_items[i].category || layout_items[i].mod) break;
-                    mod_bottom = offset_y + layout_items[i].y_top + layout_items[i].height + pad;
-                }
-                core::rect<s32> mod_box(offset_x + pad, mod_top, offset_x + pad + max_width, mod_bottom);
-                driver->draw2DRoundedRectangle(mod_box, current_theme.background_top, 15);
-                driver->draw2DRoundedRectangleOutline(mod_box, current_theme.border, 1, 15);
-
-                // Draw mod text
-                core::dimension2du mod_size = font->getDimension(
-                    (std::wstring(L"  Mod: ") + core::stringw(item.mod->m_name.c_str()).c_str()).c_str());
-                core::rect<s32> mod_text_rect(offset_x + pad, y, offset_x + pad + (s32)mod_size.Width, y + (s32)mod_size.Height);
-                font->draw((std::wstring(L"  Mod: ") + core::stringw(item.mod->m_name.c_str()).c_str()).c_str(),
-                        mod_text_rect, current_theme.text, true, true);
-                y += mod_size.Height + pad;
-            } 
-            else if (item.setting) {
-                // Just draw setting text
-                core::dimension2du set_size = font->getDimension(
-                    (std::wstring(L"    Setting: ") + core::stringw(item.setting->m_name.c_str()).c_str()).c_str());
-                core::rect<s32> set_rect(offset_x + pad, y, offset_x + pad + (s32)set_size.Width, y + (s32)set_size.Height);
-                font->draw((std::wstring(L"    Setting: ") + core::stringw(item.setting->m_name.c_str()).c_str()).c_str(),
-                        set_rect, current_theme.text, true, true);
-                y += set_size.Height + pad;
-            }
-        }
+        drawRoundedRectShadow(driver, menurect, theme.background_bottom, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.5f); // Main background
+        driver->draw2DRoundedRectangle(profilesrect, theme.background, corner_radius, 0, 0, corner_radius); // Profiles background
+        drawRoundedRectShadow(driver, profiles_topbar_rect, theme.background_top, corner_radius, 0, 0, corner_radius, 4, 6, 0.1f); // Profiles top bar
+        driver->draw2DRoundedRectangle(modsrect, theme.background, 0, corner_radius, corner_radius, 0); // Mods background
+        drawRoundedRectShadow(driver, mods_topbar_rect, theme.background_top, 0, corner_radius, corner_radius, 0, 4, 6, 0.1f); // Mods top bar
     }
-
 } 

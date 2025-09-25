@@ -8,6 +8,8 @@ class ColorTheme {
 public:
 	std::string name;
 
+	video::SColor wallpaper;
+
 	video::SColor background_top;
 	video::SColor background;
 	video::SColor background_bottom;
@@ -25,6 +27,8 @@ public:
 
 	ColorTheme() = default;
 	explicit ColorTheme(const std::string &data);
+
+	ColorTheme withAlpha(float alpha) const;
 };
 
 class ThemeManager {

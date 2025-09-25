@@ -1,9 +1,11 @@
 [theme]
 name = Default
 
-background-top    = hsl(220, 13%, 2%)
-background        = hsl(220, 13%, 4%)
-background-bottom = hsl(220, 13%, 6%)
+wallpaper         = hsl(220, 13%, 5%)
+
+background-top    = hsl(0, 0%, 24%)
+background        = hsl(0, 0%, 19%)
+background-bottom = hsl(0, 0%, 15%)
 
 border            = hsl(220, 13%, 20%)
 
