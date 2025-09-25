@@ -72,11 +72,35 @@ static video::SColor parseHSL(const std::string &value) {
 	return hslToSColor(h, s, l, a);
 }
 
+ColorTheme ColorTheme::withAlpha(float alpha) const {
+    ColorTheme copy = *this;
+
+	copy.wallpaper.setAlpha(static_cast<u8>(copy.wallpaper.getAlpha() * alpha));
+
+    copy.background_top.setAlpha(static_cast<u8>(copy.background_top.getAlpha() * alpha));
+    copy.background.setAlpha(static_cast<u8>(copy.background.getAlpha() * alpha));
+    copy.background_bottom.setAlpha(static_cast<u8>(copy.background_bottom.getAlpha() * alpha));
+
+    copy.border.setAlpha(static_cast<u8>(copy.border.getAlpha() * alpha));
+
+    copy.text.setAlpha(static_cast<u8>(copy.text.getAlpha() * alpha));
+    copy.text_muted.setAlpha(static_cast<u8>(copy.text_muted.getAlpha() * alpha));
+
+    copy.primary.setAlpha(static_cast<u8>(copy.primary.getAlpha() * alpha));
+    copy.primary_muted.setAlpha(static_cast<u8>(copy.primary_muted.getAlpha() * alpha));
+
+    copy.secondary.setAlpha(static_cast<u8>(copy.secondary.getAlpha() * alpha));
+    copy.secondary_muted.setAlpha(static_cast<u8>(copy.secondary_muted.getAlpha() * alpha));
+
+    return copy;
+}
+
 ColorTheme::ColorTheme(const std::string &data) {
 	std::istringstream stream(data);
 	std::string line;
 
 	std::map<std::string, video::SColor*> colorMap = {
+		{"wallpaper",         &wallpaper},
 		{"background-top",    &background_top},
 		{"background",        &background},
 		{"background-bottom", &background_bottom},
@@ -160,7 +184,6 @@ void ThemeManager::LoadThemes(const std::string &folderpath) {
     closedir(dir);
 #endif
 }
-
 
 std::vector<std::string> ThemeManager::GetThemes() const {
 	std::vector<std::string> names;

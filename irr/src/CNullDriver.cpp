@@ -817,33 +817,18 @@ void CNullDriver::draw2DRoundedRectangle(
         }
     };
 
-    // Fallback for non-rounded rectangle
-    if (radiusTopLeft <= 0 && radiusTopRight <= 0 && radiusBottomRight <= 0 && radiusBottomLeft <= 0)
-    {
-        video::S3DVertex v[4] = {
-            video::S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.UpperLeftCorner.Y, 0, 0,0,-1, color,0,0),
-            video::S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.UpperLeftCorner.Y, 0,0,0,-1, color,1,0),
-            video::S3DVertex((f32)pos.LowerRightCorner.X, (f32)pos.LowerRightCorner.Y, 0,0,0,-1, color,1,1),
-            video::S3DVertex((f32)pos.UpperLeftCorner.X, (f32)pos.LowerRightCorner.Y, 0,0,0,-1, color,0,1)
-        };
-        for (int i = 0; i < 4; ++i) clampToClip(v[i].Pos.X, v[i].Pos.Y);
-
-        u16 indices[6] = {0,1,2, 0,2,3};
-        SMaterial m;
-        m.ZBuffer = ECFN_NEVER;
-        m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
-        setMaterial(m);
-        draw2DVertexPrimitiveList(v, 4, indices, 2, EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
-        return;
-    }
-
-    // Clamp radii to half width/height
     s32 w = pos.getWidth();
     s32 h = pos.getHeight();
+
     radiusTopLeft     = core::min_(radiusTopLeft, core::min_(w/2, h/2));
     radiusTopRight    = core::min_(radiusTopRight, core::min_(w/2, h/2));
     radiusBottomRight = core::min_(radiusBottomRight, core::min_(w/2, h/2));
     radiusBottomLeft  = core::min_(radiusBottomLeft, core::min_(w/2, h/2));
+
+    s32 maxRadiusTop    = core::max_(radiusTopLeft, radiusTopRight);
+    s32 maxRadiusBottom = core::max_(radiusBottomLeft, radiusBottomRight);
+    s32 maxRadiusLeft   = core::max_(radiusTopLeft, radiusBottomLeft);
+    s32 maxRadiusRight  = core::max_(radiusTopRight, radiusBottomRight);
 
     core::array<video::S3DVertex> verts;
     core::array<u16> indices;
@@ -851,10 +836,8 @@ void CNullDriver::draw2DRoundedRectangle(
     auto addQuad = [&](f32 ax, f32 ay, f32 bx, f32 by, f32 cx, f32 cy, f32 dx, f32 dy)
     {
         u16 base = verts.size();
-		clampToClip(ax, ay);
-		clampToClip(bx, by);
-		clampToClip(cx, cy);
-		clampToClip(dx, dy);
+        clampToClip(ax, ay); clampToClip(bx, by);
+        clampToClip(cx, cy); clampToClip(dx, dy);
         verts.push_back(video::S3DVertex(ax, ay, 0,0,0,-1,color,0,0));
         verts.push_back(video::S3DVertex(bx, by, 0,0,0,-1,color,0,0));
         verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
@@ -866,23 +849,18 @@ void CNullDriver::draw2DRoundedRectangle(
     auto addCorner = [&](f32 cx, f32 cy, s32 radius, f32 startAngle)
     {
         if(radius <= 0) return;
-
-        // dynamic segment count proportional to radius
         int segments = core::max_(8, radius/2);
-
         u16 base = verts.size();
-		clampToClip(cx, cy);
+        clampToClip(cx, cy);
         verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
-
         for(int i=0;i<=segments;i++)
         {
             f32 ang = startAngle + (core::PI/2.f) * ((f32)i / segments);
             f32 x = cx + cosf(ang) * radius;
             f32 y = cy + sinf(ang) * radius;
-			clampToClip(x, y);
+            clampToClip(x, y);
             verts.push_back(video::S3DVertex(x, y, 0,0,0,-1,color,0,0));
         }
-
         for(int i=0;i<segments;i++)
         {
             indices.push_back(base);
@@ -891,51 +869,82 @@ void CNullDriver::draw2DRoundedRectangle(
         }
     };
 
-    // Center quad (trimmed by corner radii)
+    if(radiusTopLeft < maxRadiusTop)
+        addQuad(
+            pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y,
+            pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y,
+            pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopLeft,
+            pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopLeft
+        );
+
+    if(radiusTopRight < maxRadiusTop)
+        addQuad(
+            pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y,
+            pos.LowerRightCorner.X, pos.UpperLeftCorner.Y,
+            pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopRight,
+            pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopRight
+        );
+
+    if(radiusBottomLeft < maxRadiusBottom)
+        addQuad(
+            pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomLeft,
+            pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomLeft,
+            pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y,
+            pos.UpperLeftCorner.X, pos.LowerRightCorner.Y
+        );
+
+    if(radiusBottomRight < maxRadiusBottom)
+        addQuad(
+            pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomRight,
+            pos.LowerRightCorner.X, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomRight,
+            pos.LowerRightCorner.X, pos.LowerRightCorner.Y,
+            pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y
+        );
+
     addQuad(
-        pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft,
-        pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight,
-        pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight,
-        pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft
+        pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y,
+        pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y,
+        pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop,
+        pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop
     );
 
-    // Side bars
-    if(radiusTopLeft > 0 || radiusBottomLeft > 0)
-        addQuad(pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + radiusTopLeft,
-                pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft,
-                pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft,
-                pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - radiusBottomLeft);
+    addQuad(
+        pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom,
+        pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom,
+        pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y,
+        pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y
+    );
 
-    if(radiusTopRight > 0 || radiusBottomRight > 0)
-        addQuad(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight,
-                pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + radiusTopRight,
-                pos.LowerRightCorner.X, pos.LowerRightCorner.Y - radiusBottomRight,
-                pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight);
+    addQuad(
+        pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + maxRadiusLeft,
+        pos.UpperLeftCorner.X + maxRadiusLeft, pos.UpperLeftCorner.Y + maxRadiusLeft,
+        pos.UpperLeftCorner.X + maxRadiusLeft, pos.LowerRightCorner.Y - maxRadiusLeft,
+        pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - maxRadiusLeft
+    );
 
-    if(radiusTopLeft > 0 || radiusTopRight > 0)
-        addQuad(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y,
-                pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y,
-                pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + core::max_(radiusTopLeft, radiusTopRight),
-                pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + core::max_(radiusTopLeft, radiusTopRight));
+    addQuad(
+        pos.LowerRightCorner.X - maxRadiusRight, pos.UpperLeftCorner.Y + maxRadiusRight,
+        pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + maxRadiusRight,
+        pos.LowerRightCorner.X, pos.LowerRightCorner.Y - maxRadiusRight,
+        pos.LowerRightCorner.X - maxRadiusRight, pos.LowerRightCorner.Y - maxRadiusRight
+    );
 
-    if(radiusBottomLeft > 0 || radiusBottomRight > 0)
-        addQuad(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - core::max_(radiusBottomLeft, radiusBottomRight),
-                pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - core::max_(radiusBottomLeft, radiusBottomRight),
-                pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y,
-                pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y);
+    addQuad(
+        pos.UpperLeftCorner.X + maxRadiusLeft, pos.UpperLeftCorner.Y + maxRadiusTop,
+        pos.LowerRightCorner.X - maxRadiusRight, pos.UpperLeftCorner.Y + maxRadiusTop,
+        pos.LowerRightCorner.X - maxRadiusRight, pos.LowerRightCorner.Y - maxRadiusBottom,
+        pos.UpperLeftCorner.X + maxRadiusLeft, pos.LowerRightCorner.Y - maxRadiusBottom
+    );
 
-    // Rounded corners
     addCorner(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft, radiusTopLeft, core::PI);
     addCorner(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight, radiusTopRight, -core::PI/2.f);
     addCorner(pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight, radiusBottomRight, 0.f);
     addCorner(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft, radiusBottomLeft, core::PI/2.f);
 
-    // Submit
     SMaterial m;
     m.ZBuffer = ECFN_NEVER;
     m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
     setMaterial(m);
-
     draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
                                indices.const_pointer(), indices.size()/3,
                                EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
