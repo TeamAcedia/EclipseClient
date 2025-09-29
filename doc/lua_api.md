@@ -5847,6 +5847,8 @@ Utilities
       on_timer_four_args = true,
       -- `ParticleSpawner` definition supports `exclude_player` field (5.14.0)
       particlespawner_exclude_player = true,
+      -- core.generate_decorations() supports `use_mapgen_biomes` parameter (5.14.0)
+      generate_decorations_biomes = true,
   }
   ```
 
@@ -6739,10 +6741,14 @@ Environment access
     * Generate all registered ores within the VoxelManip `vm` and in the area
       from `pos1` to `pos2`.
     * `pos1` and `pos2` are optional and default to mapchunk minp and maxp.
-* `core.generate_decorations(vm[, pos1, pos2])`
+* `core.generate_decorations(vm[, pos1, pos2, [use_mapgen_biomes]])`
     * Generate all registered decorations within the VoxelManip `vm` and in the
       area from `pos1` to `pos2`.
     * `pos1` and `pos2` are optional and default to mapchunk minp and maxp.
+    * `use_mapgen_biomes` (optional boolean). For use in on_generated callbacks only.
+       If set to true, decorations are placed in respect to the biome map of the current chunk.
+       `pos1` and `pos2` must match the positions of the current chunk, or an error will be raised.
+       default: `false`
 * `core.clear_objects([options])`
     * Clear all objects in the environment
     * Takes an optional table as an argument with the field `mode`.
@@ -9596,6 +9602,16 @@ Player properties need to be saved manually.
     nametag_bgcolor = <ColorSpec>,
     -- Sets background color of nametag
     -- `false` will cause the background to be set automatically based on user settings.
+    -- Default: false
+
+    nametag_fontsize = 1,
+    -- Sets the font size of the nametag in pixels.
+    -- `false` will cause the size to be set automatically based on user settings.
+    -- Default: false
+
+    nametag_scale_z = false,
+    -- If enabled, the nametag will be scaled by Z in screen space, meaning it becomes
+    -- smaller the further away the object is.
     -- Default: false
 
     infotext = "",
