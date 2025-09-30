@@ -145,6 +145,7 @@ core.register_globalstep(function(dtime)
 
 		local parent_forwardspeed = vector.dot(parent_velocity, forward)
 		local parent_strafespeed  = vector.dot(parent_velocity, right)
+		local parent_vertical_speed = parent_velocity.y
 
 		local wind_forward = vector.dot(world_wind, forward)
 		local wind_strafe  = vector.dot(world_wind, right)
@@ -162,7 +163,7 @@ core.register_globalstep(function(dtime)
 		parent_strafespeed  = clean(parent_strafespeed)
 
 		
-		local target_rotation_x = parent_forwardspeed * 10 + wind_forward * 10
+		local target_rotation_x = (parent_forwardspeed * 10) + (wind_forward * 10) - (parent_vertical_speed * 10)
 		local target_rotation_y = parent_strafespeed * 3 + wind_strafe * 10
 
 		if target_rotation_x < -5 then
