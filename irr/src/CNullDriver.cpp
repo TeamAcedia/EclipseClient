@@ -809,6 +809,7 @@ void CNullDriver::draw2DRoundedRectangle(
     s32 radiusBottomLeft,
     const core::rect<s32> *clip)
 {
+    // Helper lambda for clipping vertices
     auto clampToClip = [&](f32 &x, f32 &y) {
         if (clip && clip->getArea() != 0)
         {
@@ -820,19 +821,16 @@ void CNullDriver::draw2DRoundedRectangle(
     s32 w = pos.getWidth();
     s32 h = pos.getHeight();
 
+    // Clamp radii to prevent them from being larger than half the rectangle's dimensions
     radiusTopLeft     = core::min_(radiusTopLeft, core::min_(w/2, h/2));
     radiusTopRight    = core::min_(radiusTopRight, core::min_(w/2, h/2));
     radiusBottomRight = core::min_(radiusBottomRight, core::min_(w/2, h/2));
     radiusBottomLeft  = core::min_(radiusBottomLeft, core::min_(w/2, h/2));
 
-    s32 maxRadiusTop    = core::max_(radiusTopLeft, radiusTopRight);
-    s32 maxRadiusBottom = core::max_(radiusBottomLeft, radiusBottomRight);
-    s32 maxRadiusLeft   = core::max_(radiusTopLeft, radiusBottomLeft);
-    s32 maxRadiusRight  = core::max_(radiusTopRight, radiusBottomRight);
-
     core::array<video::S3DVertex> verts;
     core::array<u16> indices;
 
+    // Use the flexible 4-point addQuad to draw non-rectangular quadrilaterals
     auto addQuad = [&](f32 ax, f32 ay, f32 bx, f32 by, f32 cx, f32 cy, f32 dx, f32 dy)
     {
         u16 base = verts.size();
@@ -846,14 +844,18 @@ void CNullDriver::draw2DRoundedRectangle(
         for(int i=0;i<6;i++) indices.push_back(idx[i]);
     };
 
+    // Helper lambda to add a corner (triangle fan)
     auto addCorner = [&](f32 cx, f32 cy, s32 radius, f32 startAngle)
     {
         if(radius <= 0) return;
-        int segments = core::max_(8, radius/2);
+        
+        int segments = core::max_(8, radius/2); // Or a fixed number like 16
         u16 base = verts.size();
-        clampToClip(cx, cy);
-        verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
-        for(int i=0;i<=segments;i++)
+        f32 cenX = cx, cenY = cy;
+        clampToClip(cenX, cenY);
+        verts.push_back(video::S3DVertex(cenX, cenY, 0,0,0,-1,color,0,0));
+
+        for(int i = 0; i <= segments; ++i)
         {
             f32 ang = startAngle + (core::PI/2.f) * ((f32)i / segments);
             f32 x = cx + cosf(ang) * radius;
@@ -861,93 +863,61 @@ void CNullDriver::draw2DRoundedRectangle(
             clampToClip(x, y);
             verts.push_back(video::S3DVertex(x, y, 0,0,0,-1,color,0,0));
         }
-        for(int i=0;i<segments;i++)
+
+        for(int i = 0; i < segments; ++i)
         {
             indices.push_back(base);
-            indices.push_back(base+1+i);
-            indices.push_back(base+2+i);
+            indices.push_back(base + 1 + i);
+            indices.push_back(base + 2 + i);
         }
     };
 
-    if(radiusTopLeft < maxRadiusTop)
-        addQuad(
-            pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y,
-            pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y,
-            pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopLeft,
-            pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopLeft
-        );
+    f32 x = (f32)pos.UpperLeftCorner.X;
+    f32 y = (f32)pos.UpperLeftCorner.Y;
+    f32 x2 = (f32)pos.LowerRightCorner.X;
+    f32 y2 = (f32)pos.LowerRightCorner.Y;
 
-    if(radiusTopRight < maxRadiusTop)
-        addQuad(
-            pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y,
-            pos.LowerRightCorner.X, pos.UpperLeftCorner.Y,
-            pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopRight,
-            pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop - radiusTopRight
-        );
-
-    if(radiusBottomLeft < maxRadiusBottom)
-        addQuad(
-            pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomLeft,
-            pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomLeft,
-            pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y,
-            pos.UpperLeftCorner.X, pos.LowerRightCorner.Y
-        );
-
-    if(radiusBottomRight < maxRadiusBottom)
-        addQuad(
-            pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomRight,
-            pos.LowerRightCorner.X, pos.LowerRightCorner.Y - maxRadiusBottom + radiusBottomRight,
-            pos.LowerRightCorner.X, pos.LowerRightCorner.Y,
-            pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y
-        );
-
+    // --- Deconstruct the shape into 3 main non-overlapping fills + 4 corners ---
+    
+    // 1. Top Fill Rectangle: From the top edge down to the start of the top corners.
     addQuad(
-        pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y,
-        pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y,
-        pos.LowerRightCorner.X - maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop,
-        pos.UpperLeftCorner.X + maxRadiusTop, pos.UpperLeftCorner.Y + maxRadiusTop
+        x + radiusTopLeft, y,
+        x2 - radiusTopRight, y,
+        x2 - radiusTopRight, y + radiusTopRight,
+        x + radiusTopLeft, y + radiusTopLeft
     );
 
+    // 2. Middle Fill Body: Connects the two side edges between the corners.
+    // This may be a trapezoid, not a rectangle, so the 4-point addQuad is essential.
     addQuad(
-        pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom,
-        pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y - maxRadiusBottom,
-        pos.LowerRightCorner.X - maxRadiusBottom, pos.LowerRightCorner.Y,
-        pos.UpperLeftCorner.X + maxRadiusBottom, pos.LowerRightCorner.Y
+        x, y + radiusTopLeft,
+        x2, y + radiusTopRight,
+        x2, y2 - radiusBottomRight,
+        x, y2 - radiusBottomLeft
+    );
+    
+    // 3. Bottom Fill Rectangle: From the bottom edge up to the start of the bottom corners.
+    addQuad(
+        x + radiusBottomLeft, y2 - radiusBottomLeft,
+        x2 - radiusBottomRight, y2 - radiusBottomRight,
+        x2 - radiusBottomRight, y2,
+        x + radiusBottomLeft, y2
     );
 
-    addQuad(
-        pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + maxRadiusLeft,
-        pos.UpperLeftCorner.X + maxRadiusLeft, pos.UpperLeftCorner.Y + maxRadiusLeft,
-        pos.UpperLeftCorner.X + maxRadiusLeft, pos.LowerRightCorner.Y - maxRadiusLeft,
-        pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - maxRadiusLeft
-    );
+    // 4. The four corners (drawn last)
+    addCorner(x + radiusTopLeft, y + radiusTopLeft, radiusTopLeft, core::PI);
+    addCorner(x2 - radiusTopRight, y + radiusTopRight, radiusTopRight, -core::PI/2.f);
+    addCorner(x2 - radiusBottomRight, y2 - radiusBottomRight, radiusBottomRight, 0.f);
+    addCorner(x + radiusBottomLeft, y2 - radiusBottomLeft, radiusBottomLeft, core::PI/2.f);
 
-    addQuad(
-        pos.LowerRightCorner.X - maxRadiusRight, pos.UpperLeftCorner.Y + maxRadiusRight,
-        pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + maxRadiusRight,
-        pos.LowerRightCorner.X, pos.LowerRightCorner.Y - maxRadiusRight,
-        pos.LowerRightCorner.X - maxRadiusRight, pos.LowerRightCorner.Y - maxRadiusRight
-    );
-
-    addQuad(
-        pos.UpperLeftCorner.X + maxRadiusLeft, pos.UpperLeftCorner.Y + maxRadiusTop,
-        pos.LowerRightCorner.X - maxRadiusRight, pos.UpperLeftCorner.Y + maxRadiusTop,
-        pos.LowerRightCorner.X - maxRadiusRight, pos.LowerRightCorner.Y - maxRadiusBottom,
-        pos.UpperLeftCorner.X + maxRadiusLeft, pos.LowerRightCorner.Y - maxRadiusBottom
-    );
-
-    addCorner(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft, radiusTopLeft, core::PI);
-    addCorner(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight, radiusTopRight, -core::PI/2.f);
-    addCorner(pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight, radiusBottomRight, 0.f);
-    addCorner(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft, radiusBottomLeft, core::PI/2.f);
-
+    // --- Final Draw Call ---
     SMaterial m;
-    m.ZBuffer = ECFN_NEVER;
-    m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
+    m.ZBuffer = video::ECFN_NEVER;
+    m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
     setMaterial(m);
     draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
-                               indices.const_pointer(), indices.size()/3,
-                               EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
+                              indices.const_pointer(), indices.size()/3,
+                              video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
 }
 
 

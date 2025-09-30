@@ -104,6 +104,21 @@ private:
     static float getDeltaTime();
 
     static std::chrono::high_resolution_clock::time_point lastTime;
+    
+    float m_category_scroll = 0.0f;
+    float m_category_scroll_velocity = 0.0f;
+    s32 m_last_mouse_x = 0;
+    s32 m_drag_threshold = 10;
+    bool m_dragging_category = false;
+    core::vector2d<s32> m_mouse_down_pos;
+    core::rect<s32> m_cat_bar_rect;
+
+
+    std::vector<core::rect<s32>> m_category_boxes;
+    std::vector<std::string> m_category_names;
+
+	void update_category_scroll();
+    void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);
 };
 
 inline float easeInOutCubic(float t) {
