@@ -1,13 +1,13 @@
 [theme]
 name = Default
 
-wallpaper         = hsl(220, 13%, 5%)
+wallpaper         = hsl(220, 15%, 8%)
 
-background-top    = hsl(0, 0%, 24%)
-background        = hsl(0, 0%, 19%)
-background-bottom = hsl(0, 0%, 15%)
+background-top    = hsl(220, 14%, 18%)
+background        = hsl(220, 14%, 13%)
+background-bottom = hsl(220, 14%, 10%)
 
-border            = hsl(220, 13%, 20%)
+border            = hsl(220, 14%, 22%)
 
 text              = hsl(0, 0%, 100%)
 text-muted        = hsl(0, 0%, 70%)
