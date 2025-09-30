@@ -127,9 +127,42 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         }
     }
     
-    if (event.EventType == EET_MOUSE_INPUT_EVENT) {
-        if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
-            return false; 
+    // In OnEvent
+    if (event.EventType == EET_MOUSE_INPUT_EVENT) 
+    {
+        if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_cat_bar_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+        {
+            m_dragging_category = true;
+            m_last_mouse_x = event.MouseInput.X;
+            m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+            m_category_scroll_velocity = 0.0f;
+        }
+        else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) 
+        {
+            m_dragging_category = false;
+
+            s32 dx = abs(event.MouseInput.X - m_mouse_down_pos.X);
+            s32 dy = abs(event.MouseInput.Y - m_mouse_down_pos.Y);
+
+            if (dx < m_drag_threshold && dy < m_drag_threshold) 
+            {
+                // Handle click
+                for (size_t i = 0; i < m_category_boxes.size(); ++i) 
+                {
+                    if (m_category_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                    {
+                        g_settings->set("eclipse.current_category", m_category_names[i]);
+                        break;
+                    }
+                }
+            }
+        }
+        else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_dragging_category) 
+        {
+            s32 dx = event.MouseInput.X - m_last_mouse_x;
+            m_category_scroll += dx;
+            m_category_scroll_velocity = dx; // for momentum after release
+            m_last_mouse_x = event.MouseInput.X;
         }
     }
     
@@ -147,7 +180,8 @@ void drawRoundedRectShadow(
     s32 radiusBottomRight,
     s32 shadow_offset_y = 4,   // move shadow down
     s32 shadow_layers = 6,     // more layers = softer
-    float start_opacity = 0.3f // starting opacity
+    float start_opacity = 0.3f, // starting opacity
+    core::rect<s32> *clip = 0
 ) {
     // Draw shadow layers
     for (s32 i = 0; i < shadow_layers; ++i) {
@@ -167,12 +201,13 @@ void drawRoundedRectShadow(
             radiusTopLeft,
             radiusTopRight,
             radiusBottomRight,
-            radiusBottomLeft
+            radiusBottomLeft,
+            clip
         );
     }
 
     // Draw main rectangle on top
-    driver->draw2DRoundedRectangle(rect, color, radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft);
+    driver->draw2DRoundedRectangle(rect, color, radiusTopLeft, radiusTopRight, radiusBottomRight, radiusBottomLeft, clip);
 }
 
 // Simple helper to apply scaling factor
@@ -202,9 +237,107 @@ void EclipseMenu::updateAnimationProgress(float dtime) {
     opening_animation_progress = std::clamp(opening_animation_progress, 0.0f, 1.0f);
 }
 
+void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime)
+{
+    m_category_boxes.clear();
+    m_category_names.clear();
+
+    const s32 tab_spacing = applyScalingFactorS32(15);
+    const s32 category_tab_padding = applyScalingFactorS32(15);
+    const s32 category_tab_height = clip.getHeight() - category_tab_padding;
+    const s32 corner_radius = applyScalingFactorS32(10);
+
+    s32 total_width = 0;
+
+    // Loop through categories and calculate total width
+    for (auto* cat : categories) {
+        std::wstring wname = utf8_to_wide(cat->m_name);
+        core::dimension2du text_size = font->getDimension(wname.c_str());
+        s32 tab_width = text_size.Width + (category_tab_padding * 2);
+        total_width += tab_width + tab_spacing;
+    }
+
+    // Update movement
+    if (!m_dragging_category) 
+    {
+        s32 max_x = (clip.getWidth() / 2 + total_width / 2) + m_category_scroll;
+        s32 min_x = (clip.getWidth() / 2 - total_width / 2) + m_category_scroll;
+
+        float offset_scroll = m_category_scroll;
+
+        // Boundaries and momentum adjustment
+        if (max_x > clip.getWidth() && min_x > 0) 
+        {
+            m_category_scroll_velocity -= 1.0f;
+        }
+        else if (min_x < 0 && max_x < clip.getWidth()) 
+        {
+            m_category_scroll_velocity += 1.0f;
+        }
+        else if (min_x > 0 && max_x < clip.getWidth()) 
+        {
+            m_category_scroll_velocity -= offset_scroll * 0.005f;
+        }
+
+        // Apply velocity and friction
+        m_category_scroll += (m_category_scroll_velocity * (dtime * 50));
+        m_category_scroll_velocity *= 0.92f; // friction
+    }
+
+    s32 draw_x = ((clip.getWidth() / 2) - (total_width / 2)) + m_category_scroll;
+
+    // Loop through categories and draw them
+    for (auto* cat : categories) {
+        std::wstring wname = utf8_to_wide(cat->m_name);
+        core::dimension2du text_size = font->getDimension(wname.c_str());
+        s32 tab_width = text_size.Width + (category_tab_padding * 2);
+
+        core::rect<s32> tab_rect(
+            clip.UpperLeftCorner.X + draw_x,
+            clip.UpperLeftCorner.Y + (category_tab_padding / 2),
+            clip.UpperLeftCorner.X + draw_x + tab_width,
+            clip.UpperLeftCorner.Y + category_tab_height + (category_tab_padding / 2)
+        );
+        m_category_boxes.push_back(tab_rect);
+        m_category_names.push_back(cat->m_name);
+
+        // Draw tab background
+        bool is_active = (cat == current_category);
+        video::SColor bg = is_active ? theme.secondary : theme.secondary_muted;
+        drawRoundedRectShadow(driver, tab_rect, bg, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
+
+        // Draw tab text centered
+        font->draw(
+            wname.c_str(),
+            tab_rect,
+            theme.text,
+            true, true, &clip
+        );
+
+        draw_x += tab_width + tab_spacing;
+    }
+}
+
 void EclipseMenu::draw() 
 {
     GET_CATEGORIES_OR_RETURN(categories);
+
+    g_settings->setDefault("eclipse.current_category", categories[0]->m_name);
+    std::string current_category_name = g_settings->get("eclipse.current_category");
+    ModCategory* current_category = nullptr;
+
+    // Find category by name
+    for (auto* cat : categories) {
+        if (cat->m_name == current_category_name) {
+            current_category = cat;
+            break;
+        }
+    }
+
+    if (!current_category) {
+        current_category = categories[0];
+        g_settings->set("eclipse.current_category", current_category->m_name);
+    }
 
     // Initialize some basic variables
 
@@ -224,8 +357,9 @@ void EclipseMenu::draw()
 
     const core::dimension2du screensize = driver->getScreenSize();
 
-    gui::IGUIFont* font = g_fontengine->getFont(applyScalingFactorS32(24), FM_Standard);
+    setRelativePosition(core::rect<s32>(0, 0, screensize.Width, screensize.Height));
 
+    gui::IGUIFont* font = g_fontengine->getFont(applyScalingFactorS32(24), FM_Standard);
 
     if (!font)
         return;
@@ -277,12 +411,21 @@ void EclipseMenu::draw()
             modsrect.UpperLeftCorner.Y,                         //y1
             modsrect.LowerRightCorner.X,                        //x2 ( Lower right )
             modsrect.UpperLeftCorner.Y + top_bar_height         //y2
-        ); 
+        );
+
+        m_cat_bar_rect = core::rect<s32>(
+            mods_topbar_rect.UpperLeftCorner.X + corner_radius,
+            mods_topbar_rect.UpperLeftCorner.Y,
+            mods_topbar_rect.LowerRightCorner.X - corner_radius,
+            mods_topbar_rect.LowerRightCorner.Y
+        );
 
         drawRoundedRectShadow(driver, menurect, theme.background_bottom, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.5f); // Main background
         driver->draw2DRoundedRectangle(profilesrect, theme.background, corner_radius, 0, 0, corner_radius); // Profiles background
         drawRoundedRectShadow(driver, profiles_topbar_rect, theme.background_top, corner_radius, 0, 0, corner_radius, 4, 6, 0.1f); // Profiles top bar
         driver->draw2DRoundedRectangle(modsrect, theme.background, 0, corner_radius, corner_radius, 0); // Mods background
         drawRoundedRectShadow(driver, mods_topbar_rect, theme.background_top, 0, corner_radius, corner_radius, 0, 4, 6, 0.1f); // Mods top bar
+
+        draw_categories_bar(driver, m_cat_bar_rect, font, current_category, theme, categories, dtime);
     }
 } 
