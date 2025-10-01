@@ -88,6 +88,8 @@ private:
     float opening_animation_progress = 0.0;
 
     void updateAnimationProgress(float dtime);
+    void setAnimationTarget(std::string id, double target);
+    double getAnimation(std::string id);
 
     bool m_is_open = false; 
 	bool m_is_main_menu = false;
@@ -113,11 +115,15 @@ private:
     core::vector2d<s32> m_mouse_down_pos;
     core::rect<s32> m_cat_bar_rect;
 
+    core::vector2d<s32> m_current_mouse_pos;
+
+    std::vector<double> m_animations;
+    std::vector<double> m_animation_targets;
+    std::vector<std::string> m_animation_ids;
 
     std::vector<core::rect<s32>> m_category_boxes;
     std::vector<std::string> m_category_names;
 
-	void update_category_scroll();
     void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);
 };
 

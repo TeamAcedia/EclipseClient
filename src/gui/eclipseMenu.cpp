@@ -130,6 +130,11 @@ bool EclipseMenu::OnEvent(const SEvent& event)
     // In OnEvent
     if (event.EventType == EET_MOUSE_INPUT_EVENT) 
     {
+        if (event.MouseInput.Event == EMIE_MOUSE_MOVED) 
+        {
+            m_current_mouse_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+        }
+
         if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_cat_bar_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
         {
             m_dragging_category = true;
@@ -221,6 +226,7 @@ double EclipseMenu::applyScalingFactorDouble(double value) {
 
 void EclipseMenu::updateAnimationProgress(float dtime) {
     float speed = 4.0f;
+    float anim_speed = 4.0f;
     if (m_is_open) {
         opening_animation_progress += speed * dtime;
         if (opening_animation_progress > 0.99) {
@@ -235,6 +241,78 @@ void EclipseMenu::updateAnimationProgress(float dtime) {
 
     // Clamp to 0-1
     opening_animation_progress = std::clamp(opening_animation_progress, 0.0f, 1.0f);
+
+    // handle generic animations
+    for (size_t i = 0; i < m_animations.size(); ++i) {
+        float diff = m_animation_targets[i] - m_animations[i];
+        float step = anim_speed * dtime;
+
+        if (std::abs(diff) <= step) {
+            // close enough to snap to target
+            m_animations[i] = m_animation_targets[i];
+        } else {
+            // move toward target by step
+            m_animations[i] += (diff > 0 ? step : -step);
+        }
+    }
+}
+
+void EclipseMenu::setAnimationTarget(std::string id, double target)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            m_animation_targets[i] = target;
+            return;
+        }
+    }
+    m_animation_ids.emplace_back(id);
+    m_animations.emplace_back(target);
+    m_animation_targets.emplace_back(target);
+}
+
+double EclipseMenu::getAnimation(std::string id)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            return m_animations[i];
+        }
+    }
+	return 0.0;
+}
+
+video::SColor lerpColor(const video::SColor& start, const video::SColor& end, float progress)
+{
+    progress = std::clamp(progress, 0.0f, 1.0f);
+
+    float a0 = static_cast<float>(start.getAlpha());
+    float r0 = static_cast<float>(start.getRed());
+    float g0 = static_cast<float>(start.getGreen());
+    float b0 = static_cast<float>(start.getBlue());
+
+    float a1 = static_cast<float>(end.getAlpha());
+    float r1 = static_cast<float>(end.getRed());
+    float g1 = static_cast<float>(end.getGreen());
+    float b1 = static_cast<float>(end.getBlue());
+
+    auto lerp = [&](float s, float e) {
+        return s + (e - s) * progress;
+    };
+
+    float af = lerp(a0, a1);
+    float rf = lerp(r0, r1);
+    float gf = lerp(g0, g1);
+    float bf = lerp(b0, b1);
+
+    auto toByte = [](float v) -> u32 {
+        return static_cast<u32>(std::round(std::clamp(v, 0.0f, 255.0f)));
+    };
+
+    u32 a = toByte(af);
+    u32 r = toByte(rf);
+    u32 g = toByte(gf);
+    u32 b = toByte(bf);
+
+    return video::SColor(a, r, g, b);
 }
 
 void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime)
@@ -302,9 +380,16 @@ void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s3
         m_category_names.push_back(cat->m_name);
 
         // Draw tab background
-        bool is_active = (cat == current_category);
-        video::SColor bg = is_active ? theme.secondary : theme.secondary_muted;
+        setAnimationTarget(cat->m_name + "_active", (cat == current_category) ? 1.0 : 0.0);
+        video::SColor bg = lerpColor(theme.secondary, theme.primary, easeInOutCubic(getAnimation(cat->m_name + "_active")));
         drawRoundedRectShadow(driver, tab_rect, bg, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
+
+        setAnimationTarget(cat->m_name + "_hover", tab_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+        u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(cat->m_name + "_hover")) * 127);
+
+        video::SColor highlight = theme.secondary_muted;
+        highlight.setAlpha(highlight_alpha);
+        driver->draw2DRoundedRectangle(tab_rect, highlight, corner_radius, &clip);
 
         // Draw tab text centered
         font->draw(
