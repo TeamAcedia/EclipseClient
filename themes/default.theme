@@ -12,7 +12,7 @@ border            = hsl(220, 14%, 22%)
 text              = hsl(0, 0%, 100%)
 text-muted        = hsl(0, 0%, 70%)
 
-primary           = hsl(220, 13%, 25%)
+primary           = hsl(220, 13%, 22%)
 primary-muted     = hsl(220, 13%, 15%)
 
 secondary         = hsl(220, 13%, 30%)
