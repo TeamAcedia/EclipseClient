@@ -11,6 +11,7 @@ local timer = 0
 local frame_timer = 0
 local frame_global = 0
 local cape_data = {}
+local indicator_data = {}
 local world_wind = vector.new(0,0,0)
 local world_wind_target = vector.new(math.random()*2-1,0,math.random()*2-1)
 
@@ -21,13 +22,11 @@ end
 local function generate_texture_string(cape_id)
     local cape_data = networking.get_cape_data(cape_id)
     if not cape_data or not cape_data.CapeTexture then
-		core.log("error", "Using fallback texture")
         return "crown_cape.png^[verticalframe:" .. 10 .. ":" .. get_frame(frame_global, 10)
     else
         return "[png:" .. cape_data.CapeTexture .. "^[verticalframe:" .. cape_data.CapeAnimLength .. ":" .. get_frame(frame_global, cape_data.CapeAnimLength)
     end
 end
-
 
 core.register_globalstep(function(dtime)
     timer = timer + dtime
@@ -45,6 +44,73 @@ core.register_globalstep(function(dtime)
 			for _, obj in ipairs(objects) do
 				if obj:is_player() and networking.is_user_on_eclipse(obj:get_name()) then
 					local parent_id = obj:get_id()
+					
+					---------------------------------------- ACCOUNT TYPE INDICATOR
+					if indicator_data[parent_id] == nil then
+						local parent_obj = core.get_active_object(parent_id)
+						local indicator_id = core.add_active_object()
+						local indicator_obj = core.get_active_object(indicator_id)
+						if not parent_obj or not indicator_obj then return end
+
+						local account_type = networking.get_account_type(parent_obj:get_name())
+						local texture_string = ":white:*:"..eclipse.account_type_color_codes[account_type]..":" .. account_type
+						local texture = eclipse.make_text_texture(texture_string)
+
+						indicator_obj:set_properties({
+							textures = {
+								texture.texture,
+							},
+							visual = "sprite",
+							visual_size = {
+								y = 0.25,
+								x = 0.25 * (texture.width / texture.height),
+							},
+							backface_culling = false,
+							physical = false,
+							pointable = false,
+							use_texture_alpha = true,
+						})
+
+						indicator_obj:set_attachment(parent_id, "", {x=0, y=2.2, z=0}, {x=0, y=0, z=0}, false)
+
+						indicator_data[parent_id] = {
+							parent_id = parent_id,
+							object_id = indicator_id,
+							texture_string = texture_string
+						}
+					else
+						local parent_obj = core.get_active_object(parent_id)
+						local indicator_id = indicator_data[parent_id].object_id
+						local indicator_obj = core.get_active_object(indicator_id)
+						if not parent_obj or not indicator_obj then return end
+
+						local account_type = networking.get_account_type(parent_obj:get_name())
+						local texture_string = ":white:*:"..eclipse.account_type_color_codes[account_type]..":" .. account_type
+
+						if texture_string ~= indicator_data[parent_id].texture_string then -- Only re-render when updated
+							local texture = eclipse.make_text_texture(":white:*:"..eclipse.account_type_color_codes[account_type]..":" .. account_type)
+
+							indicator_obj:set_properties({
+								textures = {
+									texture.texture,
+								},
+								visual = "sprite",
+								visual_size = {
+									y = 0.25,
+									x = 0.25 * (texture.width / texture.height),
+								},
+								backface_culling = false,
+								physical = false,
+								pointable = false,
+								use_texture_alpha = true,
+							})
+							indicator_data[parent_id].texture_string = texture_string
+						end
+					end
+
+
+
+					---------------------------------------- CAPES
 					if cape_data[parent_id] == nil then
 						local cape_id = networking.get_selected_cape(obj:get_name())
 						if cape_id ~= "unknown" then

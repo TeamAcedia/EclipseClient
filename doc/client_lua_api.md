@@ -1063,6 +1063,7 @@ This is basically a reference to a C++ `GenericCAO`.
 * `is_player()`: returns true if the object is a player
 * `is_local_player()`: returns true if the object is the local player
 * `get_attach()`: returns parent or nil if it isn't attached.
+* `set_attach(parent[, bone, position, rotation, forced_visible])`: Attaches object to `parent`.
 * `set_properties(object property table)`
 * `get_properties()`: returns object property table
 * `remove()`: removes the object permanently
