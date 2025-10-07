@@ -187,8 +187,25 @@ core.register_globalstep(function(dtime)
 
 	update_world_wind()
 
+
+	for parent_id, _ in pairs(indicator_data) do
+		local indicator_obj = core.get_active_object(indicator_data[parent_id].object_id)
+		if not indicator_obj then
+			indicator_data[parent_id] = nil
+		end
+		local parent_obj = core.get_active_object(parent_id)
+		if not parent_obj then
+			indicator_obj:remove()
+			indicator_data[parent_id] = nil
+			return
+		end
+	end
 	for parent_id, _ in pairs(cape_data) do
 		local cape_obj = core.get_active_object(cape_data[parent_id].object_id)
+		if not cape_obj then
+			cape_data[parent_id] = nil
+			return
+		end
 		local parent_obj = core.get_active_object(parent_id)
 		-- calculate cape rotation based on parent object movement
 		local parent_velocity = {}
