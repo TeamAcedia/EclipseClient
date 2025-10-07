@@ -16,6 +16,7 @@ networking = {}
 networking.EclipseUsers = {}
 networking.Capes = {}
 networking.SelectedCapes = {}
+networking.AccountTypes = {}
 
 networking.is_user_on_eclipse = function(joined_name_to_check)
     for _, user in ipairs(networking.EclipseUsers) do
@@ -259,6 +260,52 @@ networking.clear_player_cache = function(ingame_username)
 	else
 		networking.SelectedCapes[teamacedia_username] = nil
 		return networking.delete_user_by_username(teamacedia_username)
+	end
+end
+
+
+networking.get_account_type = function(ingame_username)
+	local teamacedia_username = networking.get_user_account_name(ingame_username)
+	if teamacedia_username == false then
+		return "Guest"
+	end
+	if networking.AccountTypes[teamacedia_username] ~= nil then
+		return networking.AccountTypes[teamacedia_username]
+	else
+		networking.AccountTypes[teamacedia_username] = "Guest"
+		local http = get_http_api()
+		if not http then
+			return "Guest"
+		end
+
+		local handle = http.fetch_async({
+			url = API_SERVER_ADDRESS .. "api/users/get_account_type/",
+			timeout = 15,
+			post_data = core.write_json({
+				token = session_token,
+				user = teamacedia_username
+			}),
+			extra_headers = {
+				"Content-Type: application/json"
+			}
+		})
+
+		local function check_result()
+			local result = http.fetch_async_get(handle)
+			if not result.completed then
+				core.after(0.25, check_result)
+				return
+			end
+
+			if result.succeeded and result.code == 200 then
+				local ok, data = pcall(core.parse_json, result.data)
+				if ok and type(data) == "table" then
+					networking.AccountTypes[teamacedia_username] = data.account_type
+				end
+			end
+		end
+		check_result()
+		return "Guest"
 	end
 end
 
