@@ -22,6 +22,7 @@
 #include "log_internal.h"
 #include "sky.h"
 #include "util/pointedthing.h"
+#include "gui/eclipseMenu.h"
 
 /* DO NOT INCLUDE THIS FROM OUTSIDE GAME.CPP */
 
@@ -390,4 +391,8 @@ private:
 #endif
 
 	float m_shutdown_progress = 0.0f;
+
+	// Eclipse stuff
+
+	EclipseMenu *eclipse_menu = nullptr;
 };
