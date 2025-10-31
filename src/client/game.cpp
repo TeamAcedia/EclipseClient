@@ -45,7 +45,7 @@
 #include "version.h"
 #include "script/scripting_client.h"
 #include "hud.h"
-#include <IAnimatedMeshSceneNode.h>
+#include <AnimatedMeshSceneNode.h>
 #include "util/tracy_wrapper.h"
 #include "item_visuals_manager.h"
 #include "gui/eclipseMenu.h"
@@ -430,32 +430,12 @@ public:
 
 	void onGenerate(const std::string &name, ShaderConstants &constants) override
 	{
-		if (constants.find("DRAWTYPE") == constants.end())
+		if (constants.find("MATERIAL_TYPE") == constants.end())
 			return; // not a node shader
-		[[maybe_unused]] const auto drawtype =
-			static_cast<NodeDrawType>(std::get<int>(constants["DRAWTYPE"]));
 		[[maybe_unused]] const auto material_type =
 			static_cast<MaterialType>(std::get<int>(constants["MATERIAL_TYPE"]));
 
 #define PROVIDE(constant) constants[ #constant ] = (int)constant
-
-		PROVIDE(NDT_NORMAL);
-		PROVIDE(NDT_AIRLIKE);
-		PROVIDE(NDT_LIQUID);
-		PROVIDE(NDT_FLOWINGLIQUID);
-		PROVIDE(NDT_GLASSLIKE);
-		PROVIDE(NDT_ALLFACES);
-		PROVIDE(NDT_ALLFACES_OPTIONAL);
-		PROVIDE(NDT_TORCHLIKE);
-		PROVIDE(NDT_SIGNLIKE);
-		PROVIDE(NDT_PLANTLIKE);
-		PROVIDE(NDT_FENCELIKE);
-		PROVIDE(NDT_RAILLIKE);
-		PROVIDE(NDT_NODEBOX);
-		PROVIDE(NDT_GLASSLIKE_FRAMED);
-		PROVIDE(NDT_FIRELIKE);
-		PROVIDE(NDT_GLASSLIKE_FRAMED_OPTIONAL);
-		PROVIDE(NDT_PLANTLIKE_ROOTED);
 
 		PROVIDE(TILE_MATERIAL_BASIC);
 		PROVIDE(TILE_MATERIAL_ALPHA);
@@ -2065,10 +2045,10 @@ void Game::updateCameraDirection(CameraOrientation *cam, float dtime)
 {
 	auto *cur_control = device->getCursorControl();
 
-	/* With CIrrDeviceSDL on Linux and Windows, enabling relative mouse mode
-	somehow results in simulated mouse events being generated from touch events,
-	although SDL_HINT_MOUSE_TOUCH_EVENTS and SDL_HINT_TOUCH_MOUSE_EVENTS are set to 0.
-	Since Minetest has its own code to synthesize mouse events from touch events,
+	/* On Linux and Windows, enabling relative mouse mode somehow results
+	in simulated mouse events being generated from touch events, even though
+	SDL_HINT_MOUSE_TOUCH_EVENTS and SDL_HINT_TOUCH_MOUSE_EVENTS are set to 0.
+	Since we have our own code to synthesize mouse events from touch events,
 	this results in duplicated input. To avoid that, we don't enable relative
 	mouse mode if we're in touchscreen mode. */
 	if (cur_control)
@@ -2262,7 +2242,7 @@ static void pauseNodeAnimation(PausedNodesList &paused, scene::ISceneNode *node)
 		pauseNodeAnimation(paused, child);
 	if (node->getType() != scene::ESNT_ANIMATED_MESH)
 		return;
-	auto animated_node = static_cast<scene::IAnimatedMeshSceneNode *>(node);
+	auto animated_node = static_cast<scene::AnimatedMeshSceneNode *>(node);
 	float speed = animated_node->getAnimationSpeed();
 	if (!speed)
 		return;
