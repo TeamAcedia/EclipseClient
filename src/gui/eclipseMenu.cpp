@@ -142,8 +142,16 @@ bool EclipseMenu::OnEvent(const SEvent& event)
             m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
             m_category_scroll_velocity = 0.0f;
         }
+        else if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_mods_list_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+        {
+            m_dragging_mods = true;
+            m_mods_last_mouse_y = event.MouseInput.Y;
+            m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+            m_mods_scroll_velocity = 0.0f;
+        }
         else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) 
         {
+            m_dragging_mods = false;
             m_dragging_category = false;
 
             s32 dx = abs(event.MouseInput.X - m_mouse_down_pos.X);
@@ -156,6 +164,8 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                 {
                     if (m_category_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
                     {
+                        m_mods_scroll = 0.0f; // reset mods scroll when changing category
+                        m_mods_scroll_velocity = 0.0f;
                         g_settings->set("eclipse.current_category", m_category_names[i]);
                         break;
                     }
@@ -168,6 +178,13 @@ bool EclipseMenu::OnEvent(const SEvent& event)
             m_category_scroll += dx;
             m_category_scroll_velocity = dx; // for momentum after release
             m_last_mouse_x = event.MouseInput.X;
+        }
+        else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_dragging_mods) 
+        {
+            s32 dy = event.MouseInput.Y - m_mods_last_mouse_y;
+            m_mods_scroll += dy;
+            m_mods_scroll_velocity = dy; // for momentum after release
+            m_mods_last_mouse_y = event.MouseInput.Y;
         }
     }
     
@@ -335,31 +352,27 @@ void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s3
         total_width += tab_width + tab_spacing;
     }
 
-    // Update movement
-    if (!m_dragging_category) 
+    float clip_w = static_cast<float>(clip.getWidth());
+    float content_w = static_cast<float>(total_width);
+
+    float left_bound = 0.0f;
+    float right_bound = std::min(0.0f, clip_w - content_w);
+
+    if (!m_dragging_category)
     {
-        s32 max_x = (clip.getWidth() / 2 + total_width / 2) + m_category_scroll;
-        s32 min_x = (clip.getWidth() / 2 - total_width / 2) + m_category_scroll;
+        float overscroll_left = std::max(0.0f, m_category_scroll - left_bound);
+        float overscroll_right = std::min(0.0f, m_category_scroll - right_bound);
 
-        float offset_scroll = m_category_scroll;
+        float spring_force = -overscroll_left - overscroll_right;
 
-        // Boundaries and momentum adjustment
-        if (max_x > clip.getWidth() && min_x > 0) 
-        {
-            m_category_scroll_velocity -= 1.0f;
-        }
-        else if (min_x < 0 && max_x < clip.getWidth()) 
-        {
-            m_category_scroll_velocity += 1.0f;
-        }
-        else if (min_x > 0 && max_x < clip.getWidth()) 
-        {
-            m_category_scroll_velocity -= offset_scroll * 0.005f;
-        }
+        float spring_strength = 0.02f;
+        m_category_scroll_velocity += spring_force * spring_strength;
 
-        // Apply velocity and friction
-        m_category_scroll += (m_category_scroll_velocity * (dtime * 50));
-        m_category_scroll_velocity *= 0.92f; // friction
+        m_category_scroll_velocity *= 0.92f;
+        if (std::abs(m_category_scroll_velocity) < 0.1f)
+            m_category_scroll_velocity = 0.0f;
+
+        m_category_scroll += m_category_scroll_velocity * dtime * 10.0f;
     }
 
     s32 draw_x = ((clip.getWidth() / 2) - (total_width / 2)) + m_category_scroll;
@@ -400,6 +413,97 @@ void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s3
         );
 
         draw_x += tab_width + tab_spacing;
+    }
+}
+
+void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> clip, gui::IGUIFont *font, ModCategory *current_category, ColorTheme theme, float dtime)
+{
+    m_mods_boxes.clear();
+    m_mods_names.clear();
+
+    const s32 mod_padding = applyScalingFactorS32(15);
+    const s32 num_mods_per_row = 3;
+    const s32 total_padding = num_mods_per_row * 2 * mod_padding;
+    const s32 mod_width = (clip.getWidth() - total_padding) / num_mods_per_row;
+    const s32 mod_height = (mod_width / 2);
+    const s32 corner_radius = applyScalingFactorS32(10);
+
+    s32 x_index = 0;
+    s32 y_index = 0;
+
+    auto modules = current_category->mods;
+
+
+    // Number of rows (ceil division)
+    s32 num_rows = (modules.size() + num_mods_per_row - 1) / num_mods_per_row;
+    s32 total_height = (num_rows * (mod_height + mod_padding)) + mod_padding;
+
+    float clip_h = static_cast<float>(clip.getHeight());
+    float content_h = static_cast<float>(total_height);
+
+    float top_bound = 0.0f;
+    float bottom_bound = std::min(0.0f, clip_h - content_h);
+
+    if (!m_dragging_mods)
+    {
+        float overscroll_top = std::max(0.0f, m_mods_scroll - top_bound);
+        float overscroll_bottom = std::min(0.0f, m_mods_scroll - bottom_bound);
+
+        float spring_force = -overscroll_top - overscroll_bottom;
+
+        float spring_strength = 0.05f;
+        m_mods_scroll_velocity += spring_force * spring_strength;
+
+        m_mods_scroll_velocity *= 0.92f;
+        if (std::abs(m_mods_scroll_velocity) < 0.1f)
+            m_mods_scroll_velocity = 0.0f;
+
+        m_mods_scroll += m_mods_scroll_velocity * dtime * 10.0f;
+    }
+
+    s32 draw_x = clip.UpperLeftCorner.X + mod_padding;
+    s32 draw_y = clip.UpperLeftCorner.Y + mod_padding + m_mods_scroll;
+
+    // Loop through mods and draw them
+    for (auto* mod : modules) {
+        std::wstring wname = utf8_to_wide(mod->m_name);
+
+        core::rect<s32> mod_rect(
+            draw_x,
+            draw_y,
+            draw_x + mod_width,
+            draw_y + mod_height
+        );
+        m_mods_boxes.push_back(mod_rect);
+        m_mods_names.push_back(mod->m_name);
+
+        // Draw tab background
+        setAnimationTarget(mod->m_name + "_active", (mod->is_enabled()) ? 1.0 : 0.0);
+        video::SColor bg = lerpColor(theme.secondary, theme.primary, easeInOutCubic(getAnimation(mod->m_name + "_active")));
+        drawRoundedRectShadow(driver, mod_rect, bg, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
+
+        setAnimationTarget(mod->m_name + "_hover", mod_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+        u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(mod->m_name + "_hover")) * 127);
+
+        video::SColor highlight = theme.secondary_muted;
+        highlight.setAlpha(highlight_alpha);
+        driver->draw2DRoundedRectangle(mod_rect, highlight, corner_radius, &clip);
+
+        // Draw tab text centered
+        font->draw(
+            wname.c_str(),
+            mod_rect,
+            theme.text,
+            true, true, &clip
+        );
+
+        x_index++;
+        if (x_index >= num_mods_per_row) {
+            x_index = 0;
+            y_index++;
+        }
+        draw_x = clip.UpperLeftCorner.X + mod_padding + (x_index * (mod_width + (mod_padding * 2)));
+        draw_y = clip.UpperLeftCorner.Y + mod_padding + (y_index * (mod_height + mod_padding)) + m_mods_scroll;
     }
 }
 
@@ -505,6 +609,13 @@ void EclipseMenu::draw()
             mods_topbar_rect.LowerRightCorner.Y
         );
 
+        m_mods_list_rect = core::rect<s32>(
+            menurect.LowerRightCorner.X - modssize.Width,       //x1 ( Upper left )
+            m_cat_bar_rect.LowerRightCorner.Y + section_gap,    //y1
+            menurect.LowerRightCorner.X,                        //x2 ( Lower right )
+            menurect.UpperLeftCorner.Y + modssize.Height        //y2
+        );
+
         drawRoundedRectShadow(driver, menurect, theme.background_bottom, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.5f); // Main background
         driver->draw2DRoundedRectangle(profilesrect, theme.background, corner_radius, 0, 0, corner_radius); // Profiles background
         drawRoundedRectShadow(driver, profiles_topbar_rect, theme.background_top, corner_radius, 0, 0, corner_radius, 4, 6, 0.1f); // Profiles top bar
@@ -512,5 +623,6 @@ void EclipseMenu::draw()
         drawRoundedRectShadow(driver, mods_topbar_rect, theme.background_top, 0, corner_radius, corner_radius, 0, 4, 6, 0.1f); // Mods top bar
 
         draw_categories_bar(driver, m_cat_bar_rect, font, current_category, theme, categories, dtime);
+        draw_mods_list(driver, m_mods_list_rect, font, current_category, theme, dtime);
     }
 } 

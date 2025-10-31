@@ -124,7 +124,17 @@ private:
     std::vector<core::rect<s32>> m_category_boxes;
     std::vector<std::string> m_category_names;
 
+    float m_mods_scroll = 0.0f;
+    float m_mods_scroll_velocity = 0.0f;
+    s32 m_mods_last_mouse_y = 0;
+    bool m_dragging_mods = false;
+    core::rect<s32> m_mods_list_rect;
+    
+    std::vector<core::rect<s32>> m_mods_boxes;
+    std::vector<std::string> m_mods_names;
+
     void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);
+    void draw_mods_list(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, float dtime);
 };
 
 inline float easeInOutCubic(float t) {
