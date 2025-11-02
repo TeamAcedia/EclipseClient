@@ -91,6 +91,9 @@ ColorTheme ColorTheme::withAlpha(float alpha) const {
 
     copy.secondary.setAlpha(static_cast<u8>(copy.secondary.getAlpha() * alpha));
     copy.secondary_muted.setAlpha(static_cast<u8>(copy.secondary_muted.getAlpha() * alpha));
+	
+    copy.enabled.setAlpha(static_cast<u8>(copy.enabled.getAlpha() * alpha));
+    copy.disabled.setAlpha(static_cast<u8>(copy.disabled.getAlpha() * alpha));
 
     return copy;
 }
@@ -111,6 +114,8 @@ ColorTheme::ColorTheme(const std::string &data) {
 		{"primary-muted",     &primary_muted},
 		{"secondary",         &secondary},
 		{"secondary-muted",   &secondary_muted},
+		{"enabled",         &enabled},
+		{"disabled",   &disabled},
 	};
 
 	while (std::getline(stream, line)) {
@@ -203,7 +208,7 @@ ColorTheme ThemeManager::GetThemeByName(const std::string &name) const {
 	ColorTheme fallback;
 	fallback.name = "Fallback Theme";
 	fallback.background_top = fallback.background = fallback.background_bottom =
-	fallback.border = fallback.primary = fallback.primary_muted = fallback.secondary = fallback.secondary_muted = video::SColor(255, 0, 0, 0);
-	fallback.text = fallback.text_muted = video::SColor(255, 255, 255, 255);
+	fallback.border = fallback.primary = fallback.primary_muted = fallback.secondary = fallback.secondary_muted = fallback.disabled = video::SColor(255, 0, 0, 0);
+	fallback.text = fallback.text_muted = fallback.enabled = video::SColor(255, 255, 255, 255);
 	return fallback;
 }

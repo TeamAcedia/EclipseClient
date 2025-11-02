@@ -27,6 +27,9 @@ primary-muted     = hsla(210, 90%, 35%, 0.8)
 
 secondary         = hsl(0, 90%, 60%)
 secondary-muted   = hsla(0, 90%, 35%, 0.8)
+
+enabled           = hsl(130, 100%, 37%)
+disabled          = hsl(0, 100%, 37%)
 ```
 
 ---
@@ -44,6 +47,8 @@ Each theme must define the following keys:
 * `text-muted`
 * `primary`
 * `primary-muted`
+* `enabled`
+* `disabled`
 
 ---
 

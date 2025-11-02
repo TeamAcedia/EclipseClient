@@ -24,6 +24,9 @@ public:
 
 	video::SColor secondary;
 	video::SColor secondary_muted;
+	
+	video::SColor enabled;
+	video::SColor disabled;
 
 	ColorTheme() = default;
 	explicit ColorTheme(const std::string &data);

@@ -17,3 +17,6 @@ primary-muted     = hsl(220, 13%, 15%)
 
 secondary         = hsl(220, 13%, 30%)
 secondary-muted   = hsl(220, 13%, 15%)
+
+enabled           = hsl(130, 100%, 37%)
+disabled          = hsl(0, 100%, 37%)

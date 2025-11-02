@@ -425,7 +425,7 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
     const s32 num_mods_per_row = 3;
     const s32 total_padding = num_mods_per_row * 2 * mod_padding;
     const s32 mod_width = (clip.getWidth() - total_padding) / num_mods_per_row;
-    const s32 mod_height = (mod_width / 2);
+    const s32 mod_height = (mod_width * 0.75); // 4:3 aspect ratio
     const s32 corner_radius = applyScalingFactorS32(10);
 
     s32 x_index = 0;
@@ -474,10 +474,25 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             draw_x + mod_width,
             draw_y + mod_height
         );
+
+        core::rect<s32> mod_text_rect(
+            draw_x,
+            draw_y + mod_height * 0.6,
+            draw_x + mod_width,
+            draw_y + mod_height * 0.8
+        );
+
+        core::rect<s32> mod_enabled_rect(
+            draw_x,
+            draw_y + mod_height * 0.8,
+            draw_x + mod_width,
+            draw_y + mod_height
+        );
+
         m_mods_boxes.push_back(mod_rect);
         m_mods_names.push_back(mod->m_name);
 
-        // Draw tab background
+        // Draw mod background
         setAnimationTarget(mod->m_name + "_active", (mod->is_enabled()) ? 1.0 : 0.0);
         video::SColor bg = lerpColor(theme.secondary, theme.primary, easeInOutCubic(getAnimation(mod->m_name + "_active")));
         drawRoundedRectShadow(driver, mod_rect, bg, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
@@ -489,10 +504,23 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
         highlight.setAlpha(highlight_alpha);
         driver->draw2DRoundedRectangle(mod_rect, highlight, corner_radius, &clip);
 
-        // Draw tab text centered
+        // Draw mod enabled background
+        video::SColor enabled_bg = mod->is_enabled() ? theme.enabled: theme.disabled;
+        drawRoundedRectShadow(driver, mod_enabled_rect, enabled_bg, corner_radius / 2, corner_radius / 2, corner_radius / 2, corner_radius / 2, 2, 4, 0.1f, &clip);
+
+        // Draw mod enabled text centered
+        std::wstring wenabled = mod->is_enabled() ? utf8_to_wide("Enabled") : utf8_to_wide("Disabled");
+        font->draw(
+            wenabled.c_str(),
+            mod_enabled_rect,
+            theme.text,
+            true, true, &clip
+        );
+
+        // Draw mod text centered
         font->draw(
             wname.c_str(),
-            mod_rect,
+            mod_text_rect,
             theme.text,
             true, true, &clip
         );
