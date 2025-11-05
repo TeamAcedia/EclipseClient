@@ -125,55 +125,32 @@ static video::ITexture *extractTexture(const TileDef &def, const TileLayer &laye
 {
 	// If animated take first frame from tile layer (so we don't have to handle
 	// that manually), otherwise look up by name.
-	if (!layer.empty() && (layer.material_flags & MATERIAL_FLAG_ANIMATION))
-		return (*layer.frames)[0].texture;
+	if (!layer.empty() && (layer.material_flags & MATERIAL_FLAG_ANIMATION)) {
+		auto *ret = (*layer.frames)[0].texture;
+		assert(ret->getType() == video::ETT_2D);
+		return ret;
+	}
 	if (!def.name.empty())
 		return tsrc->getTextureForMesh(def.name);
 	return nullptr;
 }
 
-// (the function name represents the amount of time wasted on all of this)
-
-static void setAlphaBullshit(video::SMaterial &mat,
-		AlphaMode mode, bool overlay)
+void getAdHocNodeShader(video::SMaterial &mat, IShaderSource *shdsrc,
+		const char *shader, AlphaMode mode, int layer)
 {
-	switch (mode) {
-	case ALPHAMODE_BLEND:
-		mat.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
-		mat.MaterialTypeParam = 0;
-		return;
-	case ALPHAMODE_OPAQUE:
-		if (!overlay) {
-			mat.MaterialType = video::EMT_SOLID;
-			return;
-		}
-		[[fallthrough]];
-	case ALPHAMODE_CLIP:
-	default:
-		mat.MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL_REF;
-		mat.MaterialTypeParam = 0.5f;
-		return;
-	}
-}
+	assert(shdsrc);
+	MaterialType type = alpha_mode_to_material_type(mode);
+	if (layer == 1)
+		type = material_type_with_alpha(type);
 
-static void setAlphaBullshit(video::SMaterial &mat, IShaderSource *shdsrc,
-		AlphaMode mode, bool overlay)
-{
-	MaterialType mt;
-	switch (mode) {
-	case ALPHAMODE_BLEND:
-		mt = TILE_MATERIAL_ALPHA;
-		break;
-	case ALPHAMODE_OPAQUE:
-		mt = overlay ? TILE_MATERIAL_BASIC : TILE_MATERIAL_OPAQUE;
-		break;
-	case ALPHAMODE_CLIP:
-	default:
-		mt = TILE_MATERIAL_BASIC;
-		break;
-	}
+	// Note: logic wise this duplicates what `ContentFeatures::updateTextures`
+	// and related functions do.
 
-	u32 shader_id = shdsrc->getShader("object_shader", mt, NDT_NORMAL);
+	bool array_texture = false;
+	if (mat.getTexture(0))
+		array_texture = mat.getTexture(0)->getType() == video::ETT_2D_ARRAY;
+
+	u32 shader_id = shdsrc->getShader(shader, type, NDT_NORMAL, array_texture);
 	mat.MaterialType = shdsrc->getShaderInfo(shader_id).material;
 }
 
@@ -305,6 +282,7 @@ void WieldMeshSceneNode::setExtruded(const TileDef &d0, const TileLayer &l0,
 	m_buffer_info.emplace_back(1, l1);
 }
 
+// This does not set m_buffer_info
 void WieldMeshSceneNode::setExtruded(video::ITexture *texture,
 		video::ITexture *overlay_texture, v3f wield_scale)
 {
@@ -387,10 +365,6 @@ static scene::SMesh *createGenericNodeMesh(Client *client, MapNode n,
 	for (int layer = 0; layer < MAX_TILE_LAYERS; layer++) {
 		auto &prebuffers = collector.prebuffers[layer];
 		for (PreMeshBuffer &p : prebuffers) {
-			if (p.layer.material_flags & MATERIAL_FLAG_ANIMATION) {
-				const FrameSpec &frame = (*p.layer.frames)[0];
-				p.layer.texture = frame.texture;
-			}
 			for (video::S3DVertex &v : p.vertices)
 				v.Color.setAlpha(255);
 
@@ -425,20 +399,19 @@ std::vector<FrameSpec> createAnimationFrames(ITextureSource *tsrc,
 		return {{id, texture}};
 	}
 
-	video::ITexture *orginal_texture = tsrc->getTexture(image_name);
-	if (!orginal_texture)
+	auto texture_size = tsrc->getTextureDimensions(image_name);
+	if (!texture_size.Width || !texture_size.Height)
 		return {};
 
 	int frame_count = 1;
-	auto orginal_size = orginal_texture->getOriginalSize();
-	animation.determineParams(orginal_size, &frame_count, &result_frame_length_ms, nullptr);
+	animation.determineParams(texture_size, &frame_count, &result_frame_length_ms, nullptr);
 
 	std::vector<FrameSpec> frames(frame_count);
 	std::ostringstream os(std::ios::binary);
 	for (int i = 0; i < frame_count; i++) {
 		os.str("");
 		os << image_name;
-		animation.getTextureModifer(os, orginal_size, i);
+		animation.getTextureModifer(os, texture_size, i);
 
 		u32 id;
 		frames[i].texture = tsrc->getTextureForMesh(os.str(), &id);
@@ -520,7 +493,9 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 		switch (f.drawtype) {
 		case NDT_AIRLIKE:
 			setExtruded(tsrc->getTexture("no_texture_airlike.png"), nullptr, v3f(1));
-			break;
+			m_buffer_info.emplace_back(0);
+			setColor(video::SColor(0xFFFFFFFF));
+			return;
 		case NDT_SIGNLIKE:
 		case NDT_TORCHLIKE:
 		case NDT_RAILLIKE:
@@ -559,7 +534,7 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 		for (u32 i = 0; i < material_count; ++i) {
 			video::SMaterial &material = m_meshnode->getMaterial(i);
 			// apply node's alpha mode
-			setAlphaBullshit(material, shdsrc, f.alpha,
+			getAdHocNodeShader(material, shdsrc, "object_shader", f.alpha,
 				m_buffer_info[i].layer == 1);
 			material.forEachTexture([this] (auto &tex) {
 				setMaterialFilters(tex, m_bilinear_filter, m_trilinear_filter,
@@ -668,6 +643,7 @@ void createItemMesh(Client *client, const ItemDefinition &def,
 		ItemMesh *result)
 {
 	ITextureSource *tsrc = client->getTextureSource();
+	IShaderSource *shdsrc = client->getShaderSource();
 	const NodeDefManager *ndef = client->getNodeDefManager();
 	const ContentFeatures &f = ndef->get(def.name);
 	assert(result);
@@ -676,8 +652,8 @@ void createItemMesh(Client *client, const ItemDefinition &def,
 
 	scene::SMesh *mesh = nullptr;
 
-	// Shading is on by default
-	result->needs_shading = true;
+	// Shading is off by default
+	result->needs_shading = false;
 
 	video::ITexture *inventory_texture = animation_normal.getTexture(0.0f),
 		*inventory_overlay_texture = animation_overlay.getTexture(0.0f);
@@ -691,8 +667,6 @@ void createItemMesh(Client *client, const ItemDefinition &def,
 		// overlay is white, if present
 		result->buffer_info.emplace_back(1, &animation_overlay,
 				true, video::SColor(0xFFFFFFFF));
-		// Items with inventory images do not need shading
-		result->needs_shading = false;
 	} else if (def.type == ITEM_NODE && f.drawtype == NDT_AIRLIKE) {
 		// Fallback image for airlike node
 		mesh = getExtrudedMesh(tsrc->getTexture("no_texture_airlike.png"),
@@ -701,7 +675,6 @@ void createItemMesh(Client *client, const ItemDefinition &def,
 
 		// overlay is white, if present
 		result->buffer_info.emplace_back(1, true, video::SColor(0xFFFFFFFF));
-		result->needs_shading = false;
 	} else if (def.type == ITEM_NODE) {
 		switch (f.drawtype) {
 		case NDT_PLANTLIKE: {
@@ -732,6 +705,7 @@ void createItemMesh(Client *client, const ItemDefinition &def,
 
 			mesh = createGenericNodeMesh(client, n, &result->buffer_info, f);
 			scaleMesh(mesh, v3f(0.12f));
+			result->needs_shading = true;
 			break;
 		}
 		}
@@ -740,7 +714,7 @@ void createItemMesh(Client *client, const ItemDefinition &def,
 			scene::IMeshBuffer *buf = mesh->getMeshBuffer(i);
 			video::SMaterial &material = buf->getMaterial();
 			// apply node's alpha mode
-			setAlphaBullshit(material, f.alpha,
+			getAdHocNodeShader(material, shdsrc, "inventory_shader", f.alpha,
 				result->buffer_info[i].layer == 1);
 			material.forEachTexture([] (auto &tex) {
 				tex.MinFilter = video::ETMINF_NEAREST_MIPMAP_NEAREST;

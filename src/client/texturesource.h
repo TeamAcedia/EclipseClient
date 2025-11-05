@@ -6,6 +6,7 @@
 
 #include "irrlichttypes.h"
 #include <SColor.h>
+#include <dimension2d.h>
 #include <string>
 #include <vector>
 
@@ -59,8 +60,11 @@ public:
 	/// @brief Returns existing texture by ID
 	virtual video::ITexture *getTexture(u32 id)=0;
 
-	/// @return true if getTextureForMesh will apply a filter
-	virtual bool needFilterForMesh() const = 0;
+	/// @brief Generates texture string(s) into an array texture
+	/// @note Unlike the other getters this will always add a *new* texture.
+	/// @return its ID
+	virtual video::ITexture *addArrayTexture(
+		const std::vector<std::string> &images, u32 *id = nullptr) = 0;
 
 	/**
 	 * @brief Generates a texture string into a standard texture
@@ -76,6 +80,9 @@ public:
 		return getTexture(image, id);
 	}
 
+	/// @return true if getTextureForMesh will apply a filter
+	virtual bool needFilterForMesh() const = 0;
+
 	/// Filter needed for mesh-suitable textures, including leading ^
 	static constexpr const char *FILTER_FOR_MESH = "^[applyfiltersformesh";
 
@@ -89,6 +96,10 @@ public:
 
 	/// @brief Check if given image name exists
 	virtual bool isKnownSourceImage(const std::string &name)=0;
+
+	/// @brief Return dimensions of a texture string
+	/// (will avoid actually creating the texture)
+	virtual core::dimension2du getTextureDimensions(const std::string &image)=0;
 
 	/// @brief Return average color of a texture string
 	virtual video::SColor getTextureAverageColor(const std::string &image)=0;

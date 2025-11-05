@@ -11,11 +11,11 @@
 #include "lua_api/l_object.h"
 #include "lua_api/l_item.h"
 #include "common/c_internal.h"
-#include "server.h"
+#include "content/mods.h" // ModSpec
+#include "server.h" // ServerPlayingSound
+#include "itemdef.h"
 #include "log.h"
 #include "tool.h"
-#include "porting.h"
-#include "mapgen/mg_schematic.h"
 #include "noise.h"
 #include "server/player_sao.h"
 #include "util/pointedthing.h"
