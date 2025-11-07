@@ -131,6 +131,7 @@ private:
     core::rect<s32> m_mods_list_rect;
     
     std::vector<core::rect<s32>> m_mods_boxes;
+    std::vector<core::rect<s32>> m_mods_toggle_boxes;
     std::vector<std::string> m_mods_names;
 
     void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);

@@ -71,6 +71,12 @@ bool Mod::is_enabled()
 	return g_settings->getBool(m_setting_id);
 }
 
+void Mod::toggle()
+{
+	bool current = is_enabled();
+	g_settings->setBool(m_setting_id, !current);
+}
+
 bool Mod::has_settings()
 {
 	return !m_mod_settings.empty();

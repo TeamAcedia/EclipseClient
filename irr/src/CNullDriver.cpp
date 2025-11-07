@@ -813,8 +813,8 @@ void CNullDriver::draw2DRoundedRectangle(
     auto clampToClip = [&](f32 &x, f32 &y) {
         if (clip && clip->getArea() != 0)
         {
-            x = core::clamp((s32)x, clip->UpperLeftCorner.X, clip->LowerRightCorner.X);
-            y = core::clamp((s32)y, clip->UpperLeftCorner.Y, clip->LowerRightCorner.Y);
+            x = core::clamp(x, (f32)clip->UpperLeftCorner.X, (f32)clip->LowerRightCorner.X);
+            y = core::clamp(y, (f32)clip->UpperLeftCorner.Y, (f32)clip->LowerRightCorner.Y);
         }
     };
 
@@ -845,32 +845,47 @@ void CNullDriver::draw2DRoundedRectangle(
     };
 
     // Helper lambda to add a corner (triangle fan)
-    auto addCorner = [&](f32 cx, f32 cy, s32 radius, f32 startAngle)
-    {
-        if(radius <= 0) return;
-        
-        int segments = core::max_(8, radius/2); // Or a fixed number like 16
-        u16 base = verts.size();
-        f32 cenX = cx, cenY = cy;
-        clampToClip(cenX, cenY);
-        verts.push_back(video::S3DVertex(cenX, cenY, 0,0,0,-1,color,0,0));
+    auto addCorner = [&](f32 cx, f32 cy, f32 radius, f32 startAngleDeg)
+	{
+		if (radius <= 0) return;
+		f32 x_offset = 0.0f;
+		f32 y_offset = 0.0f;
+		// hacky solution to avoid floating point precision artifacts
+		if (startAngleDeg == 90) {
+			radius -= 0.5f;
+		} else if (startAngleDeg == 180) {
+			radius -= 1.0f;
+		} else if (startAngleDeg == 270) {
+			radius -= 0.5f;
+		}
+		int segments = core::clamp(radius / 2.0f, 2.0f, 12.0f);
+		u16 base = verts.size();
+		f32 cenX = cx, cenY = cy;
+		clampToClip(cenX, cenY);
+		verts.push_back(video::S3DVertex(cenX, cenY, 0, 0, 0, -1, color, 0, 0));
 
-        for(int i = 0; i <= segments; ++i)
-        {
-            f32 ang = startAngle + (core::PI/2.f) * ((f32)i / segments);
-            f32 x = cx + cosf(ang) * radius;
-            f32 y = cy + sinf(ang) * radius;
-            clampToClip(x, y);
-            verts.push_back(video::S3DVertex(x, y, 0,0,0,-1,color,0,0));
-        }
+		for (int i = 0; i <= segments; ++i)
+		{
+			f32 angDeg = (startAngleDeg + 180 ) + (90.0f * ((f32)i / segments));
+			f32 ang = angDeg * core::DEGTORAD;
+			f32 x = cx + cosf(ang) * radius;
+			f32 y = cy + sinf(ang) * radius;
+			clampToClip(x, y);
+			if (i == segments) {
+				x += x_offset;
+				y += y_offset;
+			}
+			verts.push_back(video::S3DVertex(x, y, 0, 0, 0, -1, color, 0, 0));
+		}
 
-        for(int i = 0; i < segments; ++i)
-        {
-            indices.push_back(base);
-            indices.push_back(base + 1 + i);
-            indices.push_back(base + 2 + i);
-        }
-    };
+		for (int i = 0; i < segments; ++i)
+		{
+			indices.push_back(base);
+			indices.push_back(base + 1 + i);
+			indices.push_back(base + 2 + i);
+		}
+	};
+
 
     f32 x = (f32)pos.UpperLeftCorner.X;
     f32 y = (f32)pos.UpperLeftCorner.Y;
@@ -905,10 +920,10 @@ void CNullDriver::draw2DRoundedRectangle(
     );
 
     // 4. The four corners (drawn last)
-    addCorner(x + radiusTopLeft, y + radiusTopLeft, radiusTopLeft, core::PI);
-    addCorner(x2 - radiusTopRight, y + radiusTopRight, radiusTopRight, -core::PI/2.f);
-    addCorner(x2 - radiusBottomRight, y2 - radiusBottomRight, radiusBottomRight, 0.f);
-    addCorner(x + radiusBottomLeft, y2 - radiusBottomLeft, radiusBottomLeft, core::PI/2.f);
+    addCorner(x + radiusTopLeft, y + radiusTopLeft, (f32)radiusTopLeft, 0);
+    addCorner(x2 - radiusTopRight, y + radiusTopRight, (f32)radiusTopRight, 90);
+    addCorner(x2 - radiusBottomRight, y2 - radiusBottomRight, (f32)radiusBottomRight, 180);
+    addCorner(x + radiusBottomLeft, y2 - radiusBottomLeft, (f32)radiusBottomLeft, 270);
 
     // --- Final Draw Call ---
     SMaterial m;

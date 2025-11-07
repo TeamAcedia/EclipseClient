@@ -133,6 +133,13 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         if (event.MouseInput.Event == EMIE_MOUSE_MOVED) 
         {
             m_current_mouse_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+            for (size_t i = 0; i < m_mods_toggle_boxes.size(); ++i) 
+            {
+                if (!m_mods_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                {
+                    setAnimationTarget(m_mods_names[i] + "_toggle_pressed", 0.0);
+                }
+            }
         }
 
         if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_cat_bar_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
@@ -142,14 +149,14 @@ bool EclipseMenu::OnEvent(const SEvent& event)
             m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
             m_category_scroll_velocity = 0.0f;
         }
-        else if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_mods_list_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+        if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_mods_list_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
         {
             m_dragging_mods = true;
             m_mods_last_mouse_y = event.MouseInput.Y;
             m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
             m_mods_scroll_velocity = 0.0f;
         }
-        else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) 
+        if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) 
         {
             m_dragging_mods = false;
             m_dragging_category = false;
@@ -170,6 +177,33 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                         break;
                     }
                 }
+
+                for (size_t i = 0; i < m_mods_toggle_boxes.size(); ++i) 
+                {
+                    if (m_mods_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                    {
+                        setAnimationTarget(m_mods_names[i] + "_toggle_pressed", 0.0);
+                        std::string current_category_name = g_settings->get("eclipse.current_category");
+                        for (auto cat : categories) {
+                            if (cat->m_name == current_category_name) {
+                                for (auto mod : cat->mods) {
+                                    if (mod->m_name == m_mods_names[i]) {
+                                        mod->toggle();
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) 
+        {
+            for (size_t i = 0; i < m_mods_toggle_boxes.size(); ++i) 
+            {
+                setAnimationTarget(m_mods_names[i] + "_toggle_pressed", m_mods_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y)) ? 1.0 : 0.0);
             }
         }
         else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_dragging_category) 
@@ -190,6 +224,87 @@ bool EclipseMenu::OnEvent(const SEvent& event)
     
     return Parent ? Parent->OnEvent(event) : false; 
 }
+
+void draw2DThickLine(
+    video::IVideoDriver* driver,
+    core::vector2d<s32> start,
+    core::vector2d<s32> end,
+    video::SColor color,
+    f32 width,
+    const core::rect<s32>* clip = nullptr)
+{
+    if (!driver || width <= 0.0f) return;
+
+    core::array<video::S3DVertex> verts;
+    core::array<u16> indices;
+
+    // Helper lambda for clipping vertices
+    auto clampToClip = [&](f32 &x, f32 &y) {
+        if (clip && clip->getArea() != 0)
+        {
+            x = core::clamp(x, (f32)clip->UpperLeftCorner.X, (f32)clip->LowerRightCorner.X);
+            y = core::clamp(y, (f32)clip->UpperLeftCorner.Y, (f32)clip->LowerRightCorner.Y);
+        }
+    };
+
+    // Compute direction vector
+    f32 dx = (f32)(end.X - start.X);
+    f32 dy = (f32)(end.Y - start.Y);
+
+    f32 length = sqrtf(dx*dx + dy*dy);
+    if (length == 0.0f) return;
+
+    // Normalize direction
+    dx /= length;
+    dy /= length;
+
+    // Perpendicular vector (for width)
+    f32 px = -dy * width * 0.5f;
+    f32 py = dx * width * 0.5f;
+
+    // Compute four corners of the rectangle
+    f32 x0 = (f32)start.X + px;
+    f32 y0 = (f32)start.Y + py;
+    f32 x1 = (f32)start.X - px;
+    f32 y1 = (f32)start.Y - py;
+    f32 x2 = (f32)end.X - px;
+    f32 y2 = (f32)end.Y - py;
+    f32 x3 = (f32)end.X + px;
+    f32 y3 = (f32)end.Y + py;
+
+    // Clamp to clip if provided
+    clampToClip(x0, y0);
+    clampToClip(x1, y1);
+    clampToClip(x2, y2);
+    clampToClip(x3, y3);
+
+    // Add vertices
+    u16 base = verts.size();
+    verts.push_back(video::S3DVertex(x0, y0, 0,0,0,-1, color, 0, 0));
+    verts.push_back(video::S3DVertex(x1, y1, 0,0,0,-1, color, 0, 0));
+    verts.push_back(video::S3DVertex(x2, y2, 0,0,0,-1, color, 0, 0));
+    verts.push_back(video::S3DVertex(x3, y3, 0,0,0,-1, color, 0, 0));
+
+    // Add two triangles for the rectangle
+    indices.push_back(base);
+    indices.push_back(base+1);
+    indices.push_back(base+2);
+
+    indices.push_back(base);
+    indices.push_back(base+2);
+    indices.push_back(base+3);
+
+    // Draw
+    video::SMaterial m;
+    m.ZBuffer = video::ECFN_NEVER;
+    m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+    driver->setMaterial(m);
+    driver->draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
+                                      indices.const_pointer(), indices.size()/3,
+                                      video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
+}
+
+
 
 // Simple helper to draw a rounded rectangle with a drop shadow
 void drawRoundedRectShadow(
@@ -420,12 +535,13 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
 {
     m_mods_boxes.clear();
     m_mods_names.clear();
+    m_mods_toggle_boxes.clear();
 
     const s32 mod_padding = applyScalingFactorS32(15);
-    const s32 num_mods_per_row = 3;
+    const s32 num_mods_per_row = 4;
     const s32 total_padding = num_mods_per_row * 2 * mod_padding;
     const s32 mod_width = (clip.getWidth() - total_padding) / num_mods_per_row;
-    const s32 mod_height = (mod_width * 0.75); // 4:3 aspect ratio
+    const s32 mod_height = (mod_width * 1);
     const s32 corner_radius = applyScalingFactorS32(10);
 
     s32 x_index = 0;
@@ -475,56 +591,130 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             draw_y + mod_height
         );
 
-        core::rect<s32> mod_text_rect(
+        // Text rect (top)
+        core::rect<s32> text_rect(
             draw_x,
-            draw_y + mod_height * 0.6,
+            draw_y,
             draw_x + mod_width,
-            draw_y + mod_height * 0.8
+            draw_y + (mod_height * 0.25f)
         );
 
-        core::rect<s32> mod_enabled_rect(
+        // Icon area (middle)
+        core::rect<s32> mod_icon_rect(
             draw_x,
-            draw_y + mod_height * 0.8,
+            draw_y + (mod_height * 0.25f),
             draw_x + mod_width,
-            draw_y + mod_height
+            draw_y + (mod_height * 0.75f)
+        );
+
+        // Toggle rect (bottom)
+        
+        core::rect<s32> toggle_rect(
+            draw_x + (mod_width * 0.35f),
+            draw_y + (mod_height * 0.8f),
+            draw_x + (mod_width * 0.65f),
+            draw_y + (mod_height * 0.95f)
+        );
+        m_mods_toggle_boxes.push_back(toggle_rect);
+        setAnimationTarget(mod->m_name + "_toggle_hover", toggle_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+        f32 adjustment = static_cast<f32>((0.02f * easeInOutCubic(getAnimation(mod->m_name + "_toggle_hover"))) - (0.01f * easeInOutCubic(getAnimation(mod->m_name + "_toggle_pressed"))));
+        toggle_rect = core::rect<s32>(
+            draw_x + (mod_width * (0.35f - adjustment)),
+            draw_y + (mod_height * (0.8f - adjustment)),
+            draw_x + (mod_width * (0.65f + adjustment)),
+            draw_y + (mod_height * (0.95f + adjustment))
         );
 
         m_mods_boxes.push_back(mod_rect);
         m_mods_names.push_back(mod->m_name);
 
-        // Draw mod background
-        setAnimationTarget(mod->m_name + "_active", (mod->is_enabled()) ? 1.0 : 0.0);
-        video::SColor bg = lerpColor(theme.secondary, theme.primary, easeInOutCubic(getAnimation(mod->m_name + "_active")));
-        drawRoundedRectShadow(driver, mod_rect, bg, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
+        // Background
+        drawRoundedRectShadow(driver, mod_rect, theme.secondary, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
 
+        // Hover overlay
         setAnimationTarget(mod->m_name + "_hover", mod_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
-        u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(mod->m_name + "_hover")) * 127);
-
+        u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(mod->m_name + "_hover")) * 64);
         video::SColor highlight = theme.secondary_muted;
         highlight.setAlpha(highlight_alpha);
         driver->draw2DRoundedRectangle(mod_rect, highlight, corner_radius, &clip);
 
-        // Draw mod enabled background
-        video::SColor enabled_bg = mod->is_enabled() ? theme.enabled: theme.disabled;
-        drawRoundedRectShadow(driver, mod_enabled_rect, enabled_bg, corner_radius / 2, corner_radius / 2, corner_radius / 2, corner_radius / 2, 2, 4, 0.1f, &clip);
-
-        // Draw mod enabled text centered
-        std::wstring wenabled = mod->is_enabled() ? utf8_to_wide("Enabled") : utf8_to_wide("Disabled");
-        font->draw(
-            wenabled.c_str(),
-            mod_enabled_rect,
-            theme.text,
-            true, true, &clip
-        );
-
-        // Draw mod text centered
+        // Draw label text
         font->draw(
             wname.c_str(),
-            mod_text_rect,
+            text_rect,
             theme.text,
             true, true, &clip
         );
 
+        // Draw toggle switch
+        
+        setAnimationTarget(mod->m_name + "_enabled", mod->is_enabled() ? 1.0 : 0.0);
+        video::SColor toggle_knob = lerpColor(theme.text_muted, theme.enabled, easeInOutCubic(getAnimation(mod->m_name + "_enabled")));
+        
+        // Draw toggle background
+        driver->draw2DRoundedRectangle(
+            toggle_rect,
+            theme.text,
+            toggle_rect.getHeight() / 6,
+            &clip
+        );
+
+        // create knob rect
+        s32 knob_diameter = toggle_rect.getHeight() - 4;
+        // lerp based on animation target s32 knob_x = mod->is_enabled() ? toggle_rect.LowerRightCorner.X - knob_diameter - 2 : toggle_rect.UpperLeftCorner.X + 2;
+        s32 knob_x = static_cast<s32>(
+            toggle_rect.UpperLeftCorner.X + 2 +
+            (toggle_rect.getWidth() - knob_diameter - 4) * easeInOutCubic(getAnimation(mod->m_name + "_enabled"))
+        );
+
+        core::rect<s32> knob_rect(
+            knob_x,
+            toggle_rect.UpperLeftCorner.Y + 2,
+            knob_x + knob_diameter,
+            toggle_rect.LowerRightCorner.Y - 2
+        );
+        driver->draw2DRoundedRectangle(
+            knob_rect,
+            toggle_knob,
+            knob_diameter / 6,
+            &clip
+        );
+
+        // Draw checkmark
+        f32 checkmark_progress = easeInOutCubic(getAnimation(mod->m_name + "_enabled"));
+
+        f32 checkmark_small_progress = std::clamp(checkmark_progress / 0.3f, 0.0f, 1.0f);
+
+        f32 checkmark_large_progress = std::clamp((checkmark_progress - 0.4f) / 0.6f, 0.0f, 1.0f);
+
+        f32 checkmark_width = knob_diameter / 10;
+
+        s32 center_x = (knob_rect.UpperLeftCorner.X + knob_rect.LowerRightCorner.X) / 2;
+        s32 center_y = (knob_rect.UpperLeftCorner.Y + knob_rect.LowerRightCorner.Y) / 2;
+        s32 checkmark_size = knob_diameter / 1.25;
+        s32 offset = checkmark_size / 12;
+
+        // Small line (bottom-left stroke)
+        if (checkmark_small_progress > 0.0f) {
+            s32 x1 = (center_x - (checkmark_size / 4)) - offset;
+            s32 y1 = center_y;
+            s32 x2 = x1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
+            s32 y2 = y1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
+            draw2DThickLine(driver, {x1, y1}, {x2, y2}, theme.text, checkmark_width, &clip);
+        }
+
+        // Large line (upper-right stroke)
+        if (checkmark_large_progress > 0.0f) {
+            s32 corner_x = (center_x - 1) - offset;
+            s32 corner_y = center_y + (checkmark_size / 4) - 1;
+
+            s32 x2 = corner_x + static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
+            s32 y2 = corner_y - static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
+            draw2DThickLine(driver, {corner_x, corner_y}, {x2, y2}, theme.text, checkmark_width, &clip);
+        }
+
+
+        // Layout positioning
         x_index++;
         if (x_index >= num_mods_per_row) {
             x_index = 0;

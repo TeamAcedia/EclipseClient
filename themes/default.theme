@@ -10,7 +10,7 @@ background-bottom = hsl(220, 14%, 10%)
 border            = hsl(220, 14%, 22%)
 
 text              = hsl(0, 0%, 100%)
-text-muted        = hsl(0, 0%, 70%)
+text-muted        = hsl(0, 0%, 50%)
 
 primary           = hsl(220, 13%, 22%)
 primary-muted     = hsl(220, 13%, 15%)
