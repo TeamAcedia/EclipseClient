@@ -152,7 +152,7 @@ COpenGL3DriverBase::COpenGL3DriverBase(const SIrrlichtCreationParameters &params
 		MaterialRenderer2DActive(0), MaterialRenderer2DTexture(0), MaterialRenderer2DNoTexture(0),
 		CurrentRenderMode(ERM_NONE), Transformation3DChanged(true),
 		OGLES2ShaderPath(params.OGLES2ShaderPath),
-		ColorFormat(ECF_R8G8B8), ContextManager(contextManager), EnableErrorTest(params.DriverDebug)
+		ContextManager(contextManager), EnableErrorTest(params.DriverDebug)
 {
 	if (!ContextManager)
 		return;
@@ -1176,6 +1176,8 @@ void COpenGL3DriverBase::setRenderStates3DMode()
 		if (static_cast<u32>(Material.MaterialType) < MaterialRenderers.size())
 			MaterialRenderers[Material.MaterialType].Renderer->OnSetMaterial(
 					Material, LastMaterial, ResetRenderStates, this);
+		else
+			os::Printer::log("Attempt to render with invalid material", ELL_WARNING);
 
 		LastMaterial = Material;
 		CacheHandler->correctCacheMaterial(LastMaterial);
@@ -1560,12 +1562,6 @@ E_DRIVER_TYPE COpenGL3DriverBase::getDriverType() const
 	return EDT_OPENGL3;
 }
 
-//! returns color format
-ECOLOR_FORMAT COpenGL3DriverBase::getColorFormat() const
-{
-	return ColorFormat;
-}
-
 //! Get a vertex shader constant index.
 s32 COpenGL3DriverBase::getVertexShaderConstantID(const c8 *name)
 {
@@ -1693,6 +1689,7 @@ ITexture *COpenGL3DriverBase::addRenderTargetTextureCubemap(const u32 sideLen, c
 SDriverLimits COpenGL3DriverBase::getLimits() const
 {
 	SDriverLimits ret;
+	ret.GLVersion = core::vector2di(Version.Major, Version.Minor);
 	ret.MaxPrimitiveCount = Version.Spec == OpenGLSpec::ES ? UINT16_MAX : INT32_MAX;
 	ret.MaxTextureSize = MaxTextureSize;
 	ret.MaxArrayTextureImages = MaxArrayTextureLayers;

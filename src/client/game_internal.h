@@ -274,7 +274,7 @@ private:
 	void handleClientEvent_SetSun(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_SetMoon(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_SetStars(ClientEvent *event, CameraOrientation *cam);
-	void handleClientEvent_OverrideDayNigthRatio(ClientEvent *event,
+	void handleClientEvent_OverrideDayNightRatio(ClientEvent *event,
 		CameraOrientation *cam);
 	void handleClientEvent_CloudParams(ClientEvent *event, CameraOrientation *cam);
 	void handleClientEvent_UpdateCamera(ClientEvent *event, CameraOrientation *cam);
@@ -381,11 +381,7 @@ private:
 	bool m_is_paused = false;
 
 	bool m_touch_simulate_aux1 = false;
-	inline bool isTouchShootlineUsed()
-	{
-		return g_touchcontrols && g_touchcontrols->isShootlineAvailable() &&
-				camera->getCameraMode() == CAMERA_MODE_FIRST;
-	}
+	bool isTouchShootlineUsed() const;
 #ifdef __ANDROID__
 	bool m_android_chat_open;
 #endif

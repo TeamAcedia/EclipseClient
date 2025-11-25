@@ -9,11 +9,14 @@
 #include "client/client.h"
 #include "porting.h"
 #include "inventory.h"
+#include "itemdef.h"
 #include "client/mesh.h"
 #include "client/wieldmesh.h"
 #include "client/texturesource.h"
 #include "client/guiscalingfilter.h"
 #include "client/item_visuals_manager.h"
+#include <IMesh.h>
+#include <IMeshBuffer.h>
 
 struct MeshTimeInfo {
 	u64 time;

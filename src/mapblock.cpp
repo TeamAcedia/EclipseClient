@@ -7,11 +7,9 @@
 #include <memory>
 #include <sstream>
 #include "map.h"
-#include "light.h"
 #include "nodedef.h"
 #include "nodemetadata.h"
 #include "gamedef.h"
-#include "irrlicht_changes/printing.h"
 #include "log.h"
 #include "content_mapnode.h"  // For legacy name-id mapping
 #include "content_nodemeta.h" // For legacy deserialization
@@ -20,6 +18,7 @@
 #include "client/mapblock_mesh.h"
 #endif
 #include "porting.h"
+#include "settings.h"
 #include "util/string.h"
 #include "util/serialize.h"
 #include "util/basic_macros.h"

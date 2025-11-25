@@ -17,17 +17,20 @@
 #include "client/sound.h"
 #include "client/texturepaths.h"
 #include "client/texturesource.h"
+#include "camera.h"
 #include "filesys.h"
 #include "game.h"
 #include "gettext.h"
 #include "gettime.h"
 #include "guiscalingfilter.h"
 #include "item_visuals_manager.h"
+#include "itemdef.h"
 #include "mapblock.h"
 #include "mapblock_mesh.h"
 #include "mapnode.h"
 #include "mapsector.h"
 #include "minimap.h"
+#include "node_visuals.h"
 #include "profiler.h"
 #include "shader.h"
 #include "translation.h"
@@ -48,6 +51,7 @@
 // Network
 #include "network/clientopcodes.h"
 #include "network/connection.h"
+#include "network/networkexceptions.h"
 #include "network/networkpacket.h"
 #include "serialization.h"
 
@@ -55,6 +59,7 @@
 #include "database/database-files.h"
 #include "database/database-sqlite3.h"
 
+#include <IAnimatedMesh.h>
 #include <IFileSystem.h>
 #include <json/json.h>
 
@@ -1896,7 +1901,7 @@ void Client::afterContentReceived()
 	TextureUpdateArgs tu_args;
 	tu_args.last_time_ms = porting::getTimeMs();
 	tu_args.text_base = wstrgettext("Initializing nodes");
-	m_nodedef->updateTextures(this, &tu_args);
+	NodeVisuals::fillNodeVisuals(m_nodedef, this, &tu_args);
 
 	// Start mesh update thread after setting up content definitions
 	infostream<<"- Starting mesh update thread"<<std::endl;

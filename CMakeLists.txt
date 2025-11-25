@@ -110,7 +110,6 @@ endif()
 
 
 if(TRUE)
-	message(STATUS "Using imported IrrlichtMt at subdirectory 'irr'")
 	if(BUILD_CLIENT)
 		add_subdirectory(irr EXCLUDE_FROM_ALL)
 
