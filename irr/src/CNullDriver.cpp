@@ -916,7 +916,6 @@ void CNullDriver::draw2DRoundedRectangle(
 
     // --- Final Draw Call ---
     SMaterial m;
-    m.ZBuffer = video::ECFN_NEVER;
     m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
     setMaterial(m);
     draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
