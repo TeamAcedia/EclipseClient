@@ -152,14 +152,22 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_mods_list_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
         {
             m_dragging_mods = true;
-            m_mods_last_mouse_y = event.MouseInput.Y;
+            m_last_mouse_y = event.MouseInput.Y;
             m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
             m_mods_scroll_velocity = 0.0f;
+        }
+        if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_module_settings_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y)))
+        {
+            m_dragging_settings = true;
+            m_last_mouse_y = event.MouseInput.Y;
+            m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+            m_settings_scroll_velocity = 0.0f;
         }
         if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) 
         {
             m_dragging_mods = false;
             m_dragging_category = false;
+            m_dragging_settings = false;
 
             s32 dx = abs(event.MouseInput.X - m_mouse_down_pos.X);
             s32 dy = abs(event.MouseInput.Y - m_mouse_down_pos.Y);
@@ -177,7 +185,7 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                         break;
                     }
                 }
-
+                bool clicked_toggle = false;
                 for (size_t i = 0; i < m_mods_toggle_boxes.size(); ++i) 
                 {
                     if (m_mods_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
@@ -189,10 +197,55 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                                 for (auto mod : cat->mods) {
                                     if (mod->m_name == m_mods_names[i]) {
                                         mod->toggle();
+                                        clicked_toggle = true;
                                         break;
                                     }
                                 }
                                 break;
+                            }
+                        }
+                    }
+                }
+                if (!clicked_toggle) {
+                    for (size_t i = 0; i < m_mods_boxes.size(); ++i) 
+                    {
+                        if (m_mods_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                        {
+                            std::string current_category_name = g_settings->get("eclipse.current_category");
+                            for (auto cat : categories) {
+                                if (cat->m_name == current_category_name) {
+                                    for (auto mod : cat->mods) {
+                                        if (mod->m_name == m_mods_names[i]) {
+                                            g_settings->set("eclipse.current_module", mod->m_name);
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }   
+            
+                for (size_t i = 0; i < m_settings_toggle_boxes.size(); ++i) 
+                {
+                    if (m_settings_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                    {
+                        setAnimationTarget(m_settings_toggle_names[i] + "_toggle_pressed", 0.0);
+                        std::string current_category_name = g_settings->get("eclipse.current_category");
+                        std::string current_module_name = g_settings->get("eclipse.current_module");
+                        for (auto cat : categories) {
+                            if (cat->m_name == current_category_name) {
+                                for (auto mod : cat->mods) {
+                                    if (mod->m_name == current_module_name) {
+                                        for (auto setting : mod->m_mod_settings) {
+                                            if (setting->m_name == m_settings_toggle_names[i]) {
+                                                setting->toggle();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -205,6 +258,14 @@ bool EclipseMenu::OnEvent(const SEvent& event)
             {
                 setAnimationTarget(m_mods_names[i] + "_toggle_pressed", m_mods_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y)) ? 1.0 : 0.0);
             }
+            for(size_t i = 0; i < m_settings_toggle_boxes.size(); ++i) 
+            {
+                setAnimationTarget(m_settings_toggle_names[i] + "_toggle_pressed", m_settings_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y)) ? 1.0 : 0.0);
+            }
+            if(current_path_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+            {
+                g_settings->set("eclipse.current_module", "");
+            }
         }
         else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_dragging_category) 
         {
@@ -215,10 +276,17 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         }
         else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_dragging_mods) 
         {
-            s32 dy = event.MouseInput.Y - m_mods_last_mouse_y;
+            s32 dy = event.MouseInput.Y - m_last_mouse_y;
             m_mods_scroll += dy;
             m_mods_scroll_velocity = dy; // for momentum after release
-            m_mods_last_mouse_y = event.MouseInput.Y;
+            m_last_mouse_y = event.MouseInput.Y;
+        }
+        else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_dragging_settings) 
+        {
+            s32 dy = event.MouseInput.Y - m_last_mouse_y;
+            m_settings_scroll += dy;
+            m_settings_scroll_velocity = dy; // for momentum after release
+            m_last_mouse_y = event.MouseInput.Y;
         }
     }
     
@@ -296,15 +364,12 @@ void draw2DThickLine(
 
     // Draw
     video::SMaterial m;
-    m.ZBuffer = video::ECFN_NEVER;
     m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
     driver->setMaterial(m);
     driver->draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
                                       indices.const_pointer(), indices.size()/3,
                                       video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
 }
-
-
 
 // Simple helper to draw a rounded rectangle with a drop shadow
 void drawRoundedRectShadow(
@@ -725,6 +790,362 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
     }
 }
 
+s32 get_setting_render_height(ModSetting& setting)
+{
+
+    // valid types are: "bool", "slider_int", "slider_float", "text", "dropdown"
+
+    const s32 base_height = 50;
+    if (setting.m_type == "bool")
+        return base_height;
+
+    else if (setting.m_type == "slider_int" || setting.m_type == "slider_float")
+        return base_height * 2;
+
+    else if (setting.m_type == "text")
+        return base_height * 6;
+
+    else if (setting.m_type == "dropdown")
+        return base_height * 2;
+
+    return base_height;
+}
+
+void draw_text_shrink_to_fit(
+    video::IVideoDriver* driver,
+    const s32 max_font_size,
+    const std::wstring& text,
+    core::rect<s32> rect,
+    video::SColor color,
+    const core::rect<s32>* clip = nullptr
+) {
+    gui::IGUIFont* font = g_fontengine->getFont(max_font_size, FM_Standard);
+    if (!font) return;
+
+    core::dimension2du text_size = font->getDimension(text.c_str());
+    s32 font_size = max_font_size;
+    while (((static_cast<s32>(text_size.Width) > rect.getWidth()) || (static_cast<s32>(text_size.Height) > rect.getHeight())) && font_size > 4) {
+        font_size -= 2;
+        font = g_fontengine->getFont(font_size, FM_Standard);
+        if (!font) break;
+        text_size = font->getDimension(text.c_str());
+    }
+    if (font) {
+        font->draw(
+            text.c_str(),
+            rect,
+            color,
+            true, true,
+            clip
+        );
+    }
+}
+
+void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s32> clip, core::rect<s32> topbar_clip, gui::IGUIFont *font, std::vector<ModCategory *> categories, ColorTheme theme, float dtime)
+{
+    m_settings_toggle_boxes.clear();
+    m_settings_toggle_names.clear();
+
+    std::string current_category_name = g_settings->get("eclipse.current_category");
+    ModCategory* current_category = nullptr;
+
+    std::string current_module_name = g_settings->get("eclipse.current_module");
+    Mod* current_module = nullptr;
+
+    std::string setting_path = "No module selected";
+
+    // Find category by name
+    for (auto* cat : categories) {
+        if (cat->m_name == current_category_name) {
+            current_category = cat;
+            break;
+        }
+    }
+
+    if (current_category) {
+        // Find module by name
+        for (auto* cat : categories) {
+            for (auto* mod : cat->mods) {
+                if (mod->m_name == current_module_name) {
+                    current_module = mod;
+                    setting_path = cat->m_name + " > " + mod->m_name;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Draw top bar with module path
+    std::wstring wsetting_path = utf8_to_wide(setting_path);
+
+
+    // get font dimension
+    core::dimension2du text_size = font->getDimension(wsetting_path.c_str());
+
+    // draw box behind text centered vertically and horizontally in topbar
+    current_path_rect = core::rect<s32> (
+        topbar_clip.getCenter().X - (text_size.Width / 2) - applyScalingFactorS32(10),
+        topbar_clip.getCenter().Y - (text_size.Height / 2) - applyScalingFactorS32(5),
+        topbar_clip.getCenter().X + (text_size.Width / 2) + applyScalingFactorS32(10),
+        topbar_clip.getCenter().Y + (text_size.Height / 2) + applyScalingFactorS32(5)
+    );
+    
+    core::rect<s32> settings_area(
+        clip.UpperLeftCorner.X + applyScalingFactorS32(15),
+        topbar_clip.LowerRightCorner.Y + applyScalingFactorS32(15),
+        clip.LowerRightCorner.X - applyScalingFactorS32(15),
+        clip.LowerRightCorner.Y - applyScalingFactorS32(15)
+    );
+
+    // Draw tab background
+    drawRoundedRectShadow(
+        driver,
+        current_path_rect,
+        theme.secondary,
+        applyScalingFactorS32(10),
+        applyScalingFactorS32(10),
+        applyScalingFactorS32(10),
+        applyScalingFactorS32(10),
+        2, 4, 0.1f,
+        &topbar_clip
+    );
+
+    // Draw tab hover overlay
+    setAnimationTarget("module_settings_rect_hover", current_path_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+    u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation("module_settings_rect_hover")) * 127);
+
+    video::SColor highlight = theme.secondary_muted;
+    highlight.setAlpha(highlight_alpha);
+    driver->draw2DRoundedRectangle(current_path_rect, highlight, applyScalingFactorS32(10), &topbar_clip);
+
+    font->draw(
+        wsetting_path.c_str(),
+        topbar_clip,
+        theme.text,
+        true, true, &topbar_clip
+    );
+
+    m_module_settings_rect = settings_area;
+
+    // Calculate total height of settings content
+    const s32 setting_spacing = applyScalingFactorS32(15);
+    s32 total_height = setting_spacing;
+    if (current_module) {
+        for (auto& setting : current_module->m_mod_settings) {
+            total_height += applyScalingFactorS32(get_setting_render_height(*setting)) + setting_spacing;
+        }
+    } else {
+        const int lineHeight = font->getDimension(L"A").Height;  // height of one line
+        total_height = lineHeight * 3;
+    }
+
+    float clip_h = static_cast<float>(clip.getHeight());
+    float content_h = static_cast<float>(total_height);
+
+    float top_bound = 0.0f;
+    float bottom_bound = std::min(0.0f, clip_h - content_h);
+
+    if (!m_dragging_settings)
+    {
+        float overscroll_top = std::max(0.0f, m_settings_scroll - top_bound);
+        float overscroll_bottom = std::min(0.0f, m_settings_scroll - bottom_bound);
+
+        float spring_force = -overscroll_top - overscroll_bottom;
+
+        float spring_strength = 0.05f;
+        m_settings_scroll_velocity += spring_force * spring_strength;
+
+        m_settings_scroll_velocity *= 0.92f;
+        if (std::abs(m_settings_scroll_velocity) < 0.1f)
+            m_settings_scroll_velocity = 0.0f;
+        m_settings_scroll += m_settings_scroll_velocity * dtime * 10.0f;
+    }
+
+
+    if (!current_module) {
+        const std::string message = 
+            "No module selected.\n"
+            "Click a module to\n"
+            "view its settings.";
+
+        // Convert to wide string
+        std::wstring wmessage = utf8_to_wide(message);
+
+        // Split into lines
+        std::vector<std::wstring> lines;
+        {
+            std::wstringstream ss(wmessage);
+            std::wstring line;
+            while (std::getline(ss, line, L'\n')) {
+                lines.push_back(line);
+            }
+        }
+
+        // Vertical layout parameters
+        const int lineHeight = font->getDimension(L"A").Height;  // height of one line
+        const int totalHeight = lineHeight * lines.size();
+        const int startY = (clip.UpperLeftCorner.Y + (clip.getHeight() - totalHeight) / 2) + static_cast<int>(m_settings_scroll);
+
+        // Draw each line centered horizontally
+        for (size_t i = 0; i < lines.size(); i++) {
+            int y = startY + i * lineHeight;
+
+            core::rect<s32> lineRect(
+                clip.UpperLeftCorner.X,
+                y,
+                clip.LowerRightCorner.X,
+                y + lineHeight
+            );
+
+            font->draw(
+                lines[i].c_str(),
+                lineRect,
+                theme.text_muted,
+                true,
+                true,
+                &settings_area
+            );
+        }
+
+        return;
+    } else {
+        int current_y = settings_area.UpperLeftCorner.Y + m_settings_scroll;
+        for (auto& setting : current_module->m_mod_settings) {
+            s32 setting_height = applyScalingFactorS32(get_setting_render_height(*setting));
+            core::rect<s32> setting_rect(
+                settings_area.UpperLeftCorner.X,
+                current_y,
+                settings_area.LowerRightCorner.X,
+                current_y + setting_height
+            );
+
+            // Draw setting background
+            drawRoundedRectShadow(
+                driver,
+                setting_rect,
+                theme.primary,
+                applyScalingFactorS32(10),
+                applyScalingFactorS32(10),
+                applyScalingFactorS32(10),
+                applyScalingFactorS32(10),
+                4, 6, 0.1f,
+                &settings_area
+            );
+
+            // Draw hover overlay
+            setAnimationTarget(setting->m_name + "_hover", setting_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+            u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(setting->m_name + "_hover")) * 64);
+            video::SColor highlight = theme.secondary_muted;
+            highlight.setAlpha(highlight_alpha);
+            driver->draw2DRoundedRectangle(setting_rect, highlight, applyScalingFactorS32(10), &settings_area);
+
+            // Draw the setting itself
+            if(setting->m_type == "bool") {
+                core::rect<s32> text_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y,
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(78),
+                    setting_rect.LowerRightCorner.Y
+                );
+                std::wstring wsetting_name = utf8_to_wide(setting->m_name);
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(24),
+                    wsetting_name,
+                    text_rect,
+                    theme.text,
+                    &settings_area
+                );
+
+                // Draw toggle switch
+                core::rect<s32> toggle_rect(
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(68),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(11),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(11)
+                );
+
+                m_settings_toggle_boxes.push_back(toggle_rect);
+                m_settings_toggle_names.push_back(setting->m_name);
+                setAnimationTarget(setting->m_name + "_toggle_hover", toggle_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+                f32 adjustment = static_cast<f32>((easeInOutCubic(getAnimation(setting->m_name + "_toggle_hover"))) - (0.5f * easeInOutCubic(getAnimation(setting->m_name + "_toggle_pressed"))));
+                toggle_rect = core::rect<s32>(
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(68) - static_cast<s32>(applyScalingFactorDouble(4.0 * adjustment)),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(11) - static_cast<s32>(applyScalingFactorDouble(4.0 * adjustment)),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10) + static_cast<s32>(applyScalingFactorDouble(4.0 * adjustment)),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(11) + static_cast<s32>(applyScalingFactorDouble(4.0 * adjustment))
+                );
+
+                setAnimationTarget(setting->m_name + "_enabled", g_settings->getBool(setting->m_setting_id) ? 1.0 : 0.0);
+                video::SColor toggle_knob = lerpColor(theme.text_muted, theme.enabled, easeInOutCubic(getAnimation(setting->m_name + "_enabled")));
+                // Draw toggle background
+                driver->draw2DRoundedRectangle(
+                    toggle_rect,
+                    theme.text,
+                    toggle_rect.getHeight() / 6,
+                    &settings_area
+                );
+                // create knob rect
+                s32 knob_diameter = toggle_rect.getHeight() - 4;
+                s32 knob_x = static_cast<s32>(
+                    toggle_rect.UpperLeftCorner.X + 2 +
+                    (toggle_rect.getWidth() - knob_diameter - 4) * easeInOutCubic(getAnimation(setting->m_name + "_enabled"))
+                );
+                core::rect<s32> knob_rect(
+                    knob_x,
+                    toggle_rect.UpperLeftCorner.Y + 2,
+                    knob_x + knob_diameter,
+                    toggle_rect.LowerRightCorner.Y - 2
+                );
+                driver->draw2DRoundedRectangle(
+                    knob_rect,
+                    toggle_knob,
+                    knob_diameter / 6,
+                    &settings_area
+                );
+
+                // Draw checkmark
+                f32 checkmark_progress = easeInOutCubic(getAnimation(setting->m_name + "_enabled"));
+                f32 checkmark_small_progress = std::clamp(checkmark_progress / 0.3f, 0.0f, 1.0f);
+                f32 checkmark_large_progress = std::clamp((checkmark_progress - 0.4f) / 0.6f, 0.0f, 1.0f);
+                f32 checkmark_width = knob_diameter / 10;
+                s32 center_x = (knob_rect.UpperLeftCorner.X + knob_rect.LowerRightCorner.X) / 2;
+                s32 center_y = (knob_rect.UpperLeftCorner.Y + knob_rect.LowerRightCorner.Y) / 2;
+                s32 checkmark_size = knob_diameter / 1.25;
+                s32 offset = checkmark_size / 12;
+                // Small line (bottom-left stroke)
+                if (checkmark_small_progress > 0.0f) {
+                    s32 x1 = (center_x - (checkmark_size / 4)) - offset;
+                    s32 y1 = center_y;
+                    s32 x2 = x1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
+                    s32 y2 = y1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
+                    draw2DThickLine(driver, {x1, y1}, {x2, y2}, theme.text, checkmark_width, &settings_area);
+                }
+                // Large line (upper-right stroke)
+                if (checkmark_large_progress > 0.0f) {
+                    s32 corner_x = (center_x - 1) - offset;
+                    s32 corner_y = center_y + (checkmark_size / 4) - 1;
+                    s32 x2 = corner_x + static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
+                    s32 y2 = corner_y - static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
+                    draw2DThickLine(driver, {corner_x, corner_y}, {x2, y2}, theme.text, checkmark_width, &settings_area);
+                }
+
+            } else if (setting->m_type == "slider_int") {
+            //    TODO
+            } else if (setting->m_type == "slider_float") {
+            //    TODO
+            } else if (setting->m_type == "text") {
+            //    TODO
+            } else if (setting->m_type == "dropdown") {
+            //    TODO
+            }
+
+            current_y += setting_height + setting_spacing;
+        }
+    }
+
+}
+
 void EclipseMenu::draw() 
 {
     GET_CATEGORIES_OR_RETURN(categories);
@@ -732,6 +1153,8 @@ void EclipseMenu::draw()
     g_settings->setDefault("eclipse.current_category", categories[0]->m_name);
     std::string current_category_name = g_settings->get("eclipse.current_category");
     ModCategory* current_category = nullptr;
+
+    g_settings->setDefault("eclipse.current_module", "");
 
     // Find category by name
     for (auto* cat : categories) {
@@ -788,20 +1211,20 @@ void EclipseMenu::draw()
         const s32 corner_radius = applyScalingFactorS32(25);
         const s32 top_bar_height = applyScalingFactorS32(55);
 
-        const core::dimension2di profilessize((menusize.Width * 0.25) - (section_gap / 2), menusize.Height - 1);
+        const core::dimension2di module_settings_size((menusize.Width * 0.25) - (section_gap / 2), menusize.Height - 1);
 
-        const core::rect<s32> profilesrect(
+        const core::rect<s32> module_settings_rect(
             menurect.UpperLeftCorner.X,                         //x1 ( Upper left )
             menurect.UpperLeftCorner.Y,                         //y1
-            menurect.UpperLeftCorner.X + profilessize.Width,    //x2 ( Lower right )
-            menurect.UpperLeftCorner.Y + profilessize.Height    //y2
+            menurect.UpperLeftCorner.X + module_settings_size.Width,    //x2 ( Lower right )
+            menurect.UpperLeftCorner.Y + module_settings_size.Height    //y2
         );
 
-        const core::rect<s32> profiles_topbar_rect(
-            profilesrect.UpperLeftCorner.X,                         //x1 ( Upper left )
-            profilesrect.UpperLeftCorner.Y,                         //y1
-            profilesrect.LowerRightCorner.X,                        //x2 ( Lower right )
-            profilesrect.UpperLeftCorner.Y + top_bar_height         //y2
+        const core::rect<s32> module_settings_topbar_rect(
+            module_settings_rect.UpperLeftCorner.X,                         //x1 ( Upper left )
+            module_settings_rect.UpperLeftCorner.Y,                         //y1
+            module_settings_rect.LowerRightCorner.X,                        //x2 ( Lower right )
+            module_settings_rect.UpperLeftCorner.Y + top_bar_height         //y2
         ); 
 
         const core::dimension2di modssize((menusize.Width * 0.75) - (section_gap / 2), menusize.Height - 1);
@@ -835,12 +1258,13 @@ void EclipseMenu::draw()
         );
 
         drawRoundedRectShadow(driver, menurect, theme.background_bottom, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.5f); // Main background
-        driver->draw2DRoundedRectangle(profilesrect, theme.background, corner_radius, 0, 0, corner_radius); // Profiles background
-        drawRoundedRectShadow(driver, profiles_topbar_rect, theme.background_top, corner_radius, 0, 0, corner_radius, 4, 6, 0.1f); // Profiles top bar
+        driver->draw2DRoundedRectangle(module_settings_rect, theme.background, corner_radius, 0, 0, corner_radius); // module_settings background
+        drawRoundedRectShadow(driver, module_settings_topbar_rect, theme.background_top, corner_radius, 0, 0, corner_radius, 4, 6, 0.1f); // module_settings top bar
         driver->draw2DRoundedRectangle(modsrect, theme.background, 0, corner_radius, corner_radius, 0); // Mods background
         drawRoundedRectShadow(driver, mods_topbar_rect, theme.background_top, 0, corner_radius, corner_radius, 0, 4, 6, 0.1f); // Mods top bar
 
         draw_categories_bar(driver, m_cat_bar_rect, font, current_category, theme, categories, dtime);
         draw_mods_list(driver, m_mods_list_rect, font, current_category, theme, dtime);
+        draw_module_settings(driver, module_settings_rect, module_settings_topbar_rect, font, categories, theme, dtime);
     }
 } 

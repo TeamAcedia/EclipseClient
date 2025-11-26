@@ -110,6 +110,7 @@ private:
     float m_category_scroll = 0.0f;
     float m_category_scroll_velocity = 0.0f;
     s32 m_last_mouse_x = 0;
+    s32 m_last_mouse_y = 0;
     s32 m_drag_threshold = 10;
     bool m_dragging_category = false;
     core::vector2d<s32> m_mouse_down_pos;
@@ -126,16 +127,25 @@ private:
 
     float m_mods_scroll = 0.0f;
     float m_mods_scroll_velocity = 0.0f;
-    s32 m_mods_last_mouse_y = 0;
     bool m_dragging_mods = false;
     core::rect<s32> m_mods_list_rect;
+
+    float m_settings_scroll = 0.0f;
+    float m_settings_scroll_velocity = 0.0f;
+    core::rect<s32> m_module_settings_rect;
+    bool m_dragging_settings = false;
+
     
     std::vector<core::rect<s32>> m_mods_boxes;
     std::vector<core::rect<s32>> m_mods_toggle_boxes;
     std::vector<std::string> m_mods_names;
+    std::vector<core::rect<s32>> m_settings_toggle_boxes;
+    std::vector<std::string> m_settings_toggle_names;
+    core::rect<s32> current_path_rect;
 
     void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);
     void draw_mods_list(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, float dtime);
+    void draw_module_settings(video::IVideoDriver* driver, core::rect<s32> clip, core::rect<s32> topbar_clip, gui::IGUIFont* font, std::vector<ModCategory*> categories, ColorTheme theme, float dtime);
 };
 
 inline float easeInOutCubic(float t) {

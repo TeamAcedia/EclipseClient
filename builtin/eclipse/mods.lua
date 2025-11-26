@@ -22,13 +22,13 @@
                         {
                             name = "Setting Name",
                             description = "Short description of the setting",
-                            type = "bool" | "slider_int" | "slider_float" | "text" | "selectionbox",
+                            type = "bool" | "slider_int" | "slider_float" | "text" | "dropdown",
                             default = <default_value>,
                             min = <min_value>,       -- for sliders
                             max = <max_value>,       -- for sliders
                             steps = <num_steps>,     -- for sliders
                             size = <field_height>,   -- for text fields
-                            options = { "Option1", "Option2" } -- for dropdown/selectionbox
+                            options = { "Option1", "Option2" } -- for dropdown
                             setting_id = "unique.setting.identifier"
                         }
                     }

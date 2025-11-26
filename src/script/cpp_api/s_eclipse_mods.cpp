@@ -27,6 +27,8 @@ ModSetting::~ModSetting()
 
 void ModSetting::toggle()
 {
+	bool current = g_settings->getBool(m_setting_id);
+	g_settings->setBool(m_setting_id, !current);
 }
 
 void ModSetting::set_value(const bool &value)
