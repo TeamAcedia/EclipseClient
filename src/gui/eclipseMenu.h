@@ -89,10 +89,13 @@ private:
 
     void updateAnimationProgress(float dtime);
     void setAnimationTarget(std::string id, double target);
+    void setAnimationSpeed(std::string id, double speed);
     double getAnimation(std::string id);
 
     bool m_is_open = false; 
 	bool m_is_main_menu = false;
+    std::string last_theme_name = "";
+    std::string last_scale_factor = "";
 
     double base_scaling_factor = 100.0;
     double active_scaling_factor = 0.0;
@@ -120,6 +123,7 @@ private:
 
     std::vector<double> m_animations;
     std::vector<double> m_animation_targets;
+    std::vector<double> m_animation_speeds;
     std::vector<std::string> m_animation_ids;
 
     std::vector<core::rect<s32>> m_category_boxes;
@@ -134,18 +138,34 @@ private:
     float m_settings_scroll_velocity = 0.0f;
     core::rect<s32> m_module_settings_rect;
     bool m_dragging_settings = false;
-
+    bool m_sliding_slider = false;
+    size_t m_sliding_slider_index = 0;
+    bool m_selecting_dropdown = false;
+    bool m_released_dropdown = false;
+    size_t m_selecting_dropdown_index = 0;
     
     std::vector<core::rect<s32>> m_mods_boxes;
     std::vector<core::rect<s32>> m_mods_toggle_boxes;
     std::vector<std::string> m_mods_names;
+
     std::vector<core::rect<s32>> m_settings_toggle_boxes;
     std::vector<std::string> m_settings_toggle_names;
+
+    std::vector<core::rect<s32>> m_settings_slider_boxes;
+    std::vector<core::rect<s32>> m_settings_slider_knob_boxes;
+    std::vector<std::string> m_settings_slider_names;
+
+    std::vector<core::rect<s32>> m_settings_dropdown_boxes;
+    std::vector<std::string> m_settings_dropdown_names;
+    std::vector<core::rect<s32>> m_dropdown_option_boxes;
+    std::vector<std::string> m_dropdown_option_names;
+
     core::rect<s32> current_path_rect;
 
     void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);
     void draw_mods_list(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, float dtime);
     void draw_module_settings(video::IVideoDriver* driver, core::rect<s32> clip, core::rect<s32> topbar_clip, gui::IGUIFont* font, std::vector<ModCategory*> categories, ColorTheme theme, float dtime);
+    void draw_dropdown_options(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme theme, std::vector<ModCategory *> categories);
 };
 
 inline float easeInOutCubic(float t) {

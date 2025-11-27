@@ -67,6 +67,38 @@ void EclipseMenu::calculateActiveScaling(s32 screen_width, s32 screen_height) {
     active_scaling_factor = base_scaling_factor * resolution_scale;
 }
 
+double roundToNearestStep(double value, double min, double max, double steps) {
+    if (steps <= 1.0) {
+        return value; // No rounding needed
+    }
+
+    double step_size = (max - min) / (steps - 1);
+    double rounded_value = std::round((value - min) / step_size) * step_size + min;
+
+    // Clamp to min and max
+    if (rounded_value < min) {
+        rounded_value = min;
+    } else if (rounded_value > max) {
+        rounded_value = max;
+    }
+
+    return rounded_value;
+}
+
+double mapValue(double value, double oldMin, double oldMax, double newMin, double newMax) {
+    return newMin + (value - oldMin) * (newMax - newMin) / (oldMax - oldMin);
+}
+
+double calculateSliderValueFromPosition(const core::rect<s32>& sliderBarRect, const core::position2d<s32>& pointerPosition, double m_min, double m_max, double m_steps)
+{
+
+    s32 clampedX = std::clamp(pointerPosition.X, sliderBarRect.UpperLeftCorner.X, sliderBarRect.LowerRightCorner.X);
+
+
+    double sliderValue = mapValue(clampedX, sliderBarRect.UpperLeftCorner.X, sliderBarRect.LowerRightCorner.X, m_min, m_max);
+
+    return roundToNearestStep(sliderValue, m_min, m_max, m_steps);
+}
 
 void EclipseMenu::create()
 {
@@ -120,8 +152,24 @@ bool EclipseMenu::OnEvent(const SEvent& event)
 
     if (event.EventType == EET_KEY_INPUT_EVENT)
     {
-        if (event.KeyInput.Key == KEY_ESCAPE)
+        if (event.KeyInput.Key == KEY_ESCAPE && event.KeyInput.PressedDown)
         {
+            if (m_selecting_dropdown) {
+                // Close dropdown if open
+                for (auto cat : categories) {
+                    for (auto mod : cat->mods) {
+                        if (mod->m_name == g_settings->get("eclipse.current_module")) {
+                            for (auto setting : mod->m_mod_settings) {
+                                if (setting->m_name == m_settings_dropdown_names[m_selecting_dropdown_index]) {
+                                    setAnimationTarget(setting->m_name + "_dropdown_open", 0.0);
+                                    m_selecting_dropdown = false;
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             close();
             return true; 
         }
@@ -140,8 +188,56 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                     setAnimationTarget(m_mods_names[i] + "_toggle_pressed", 0.0);
                 }
             }
+            for (size_t i = 0; i < m_settings_toggle_boxes.size(); ++i) 
+            {
+                if (!m_settings_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                {
+                    setAnimationTarget(m_settings_toggle_names[i] + "_toggle_pressed", 0.0);
+                }
+            }
         }
-
+        if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_selecting_dropdown) {
+            bool option_clicked = false;
+            for (size_t i = 0; i < m_dropdown_option_boxes.size(); ++i) 
+            {
+                if (m_dropdown_option_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                {
+                    for (auto cat : categories) {
+                        for (auto mod : cat->mods) {
+                            if (mod->m_name == g_settings->get("eclipse.current_module")) {
+                                for (auto setting : mod->m_mod_settings) {
+                                    if (setting->m_name == m_settings_dropdown_names[m_selecting_dropdown_index]) {
+                                        g_settings->set(setting->m_setting_id, m_dropdown_option_names[i]);
+                                        setAnimationTarget(setting->m_name + "_dropdown_open", 0.0);
+                                        m_selecting_dropdown = false;
+                                        option_clicked = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!option_clicked) {
+                // Clicked outside options, close dropdown
+                for (auto cat : categories) {
+                    for (auto mod : cat->mods) {
+                        if (mod->m_name == g_settings->get("eclipse.current_module")) {
+                            for (auto setting : mod->m_mod_settings) {
+                                if (setting->m_name == m_settings_dropdown_names[m_selecting_dropdown_index]) {
+                                    setAnimationTarget(setting->m_name + "_dropdown_open", 0.0);
+                                    m_selecting_dropdown = false;
+                                    m_released_dropdown = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return true;
+        }
         if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_cat_bar_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
         {
             m_dragging_category = true;
@@ -158,6 +254,42 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         }
         if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN && m_module_settings_rect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y)))
         {
+            bool dragging_handled = false;
+            for (size_t i = 0; i < m_settings_slider_boxes.size(); ++i) 
+            {
+                if (m_settings_slider_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y)) ||
+                    m_settings_slider_knob_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                {
+                    m_sliding_slider = true;
+                    m_sliding_slider_index = i;
+                    for (auto cat : categories) {
+                        for (auto mod : cat->mods) {
+                            if (mod->m_name == g_settings->get("eclipse.current_module")) {
+                                for (auto setting : mod->m_mod_settings) {
+                                    if (setting->m_name == m_settings_slider_names[i]) {
+                                        setAnimationTarget(setting->m_name + "_slider_knob_pressed", 1.0);
+                                        g_settings->setFloat(
+                                            setting->m_setting_id,
+                                            static_cast<float>(calculateSliderValueFromPosition(
+                                                    m_settings_slider_boxes[i],
+                                                    core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y),
+                                                    setting->m_min,
+                                                    setting->m_max,
+                                                    setting->m_steps
+                                                )
+                                            )
+                                        );
+                                        dragging_handled = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (dragging_handled)
+                return true;
             m_dragging_settings = true;
             m_last_mouse_y = event.MouseInput.Y;
             m_mouse_down_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
@@ -165,10 +297,14 @@ bool EclipseMenu::OnEvent(const SEvent& event)
         }
         if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) 
         {
+            m_sliding_slider = false;
             m_dragging_mods = false;
             m_dragging_category = false;
             m_dragging_settings = false;
-
+            if (m_released_dropdown) {
+                m_released_dropdown = false;
+                return true;
+            }
             s32 dx = abs(event.MouseInput.X - m_mouse_down_pos.X);
             s32 dy = abs(event.MouseInput.Y - m_mouse_down_pos.Y);
 
@@ -232,16 +368,37 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                     if (m_settings_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
                     {
                         setAnimationTarget(m_settings_toggle_names[i] + "_toggle_pressed", 0.0);
-                        std::string current_category_name = g_settings->get("eclipse.current_category");
                         std::string current_module_name = g_settings->get("eclipse.current_module");
                         for (auto cat : categories) {
-                            if (cat->m_name == current_category_name) {
-                                for (auto mod : cat->mods) {
-                                    if (mod->m_name == current_module_name) {
-                                        for (auto setting : mod->m_mod_settings) {
-                                            if (setting->m_name == m_settings_toggle_names[i]) {
-                                                setting->toggle();
-                                                break;
+                            for (auto mod : cat->mods) {
+                                if (mod->m_name == current_module_name) {
+                                    for (auto setting : mod->m_mod_settings) {
+                                        if (setting->m_name == m_settings_toggle_names[i]) {
+                                            setting->toggle();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (size_t i = 0; i < m_settings_dropdown_boxes.size(); ++i) 
+                {
+                    if (m_settings_dropdown_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                    {
+                        std::string current_module_name = g_settings->get("eclipse.current_module");
+                        for (auto cat : categories) {
+                            for (auto mod : cat->mods) {
+                                if (mod->m_name == current_module_name) {
+                                    for (auto setting : mod->m_mod_settings) {
+                                        if (setting->m_name == m_settings_dropdown_names[i]) {
+                                            if (m_selecting_dropdown) {
+                                                m_selecting_dropdown = false;
+                                            } else {
+                                                m_selecting_dropdown = true;
+                                                m_selecting_dropdown_index = i;
                                             }
                                         }
                                     }
@@ -287,6 +444,31 @@ bool EclipseMenu::OnEvent(const SEvent& event)
             m_settings_scroll += dy;
             m_settings_scroll_velocity = dy; // for momentum after release
             m_last_mouse_y = event.MouseInput.Y;
+        }
+        else if (event.MouseInput.Event == EMIE_MOUSE_MOVED && m_sliding_slider) 
+        {
+            for (auto cat : categories) {
+                for (auto mod : cat->mods) {
+                    if (mod->m_name == g_settings->get("eclipse.current_module")) {
+                        for (auto setting : mod->m_mod_settings) {
+                            if (setting->m_name == m_settings_slider_names[m_sliding_slider_index]) {
+                                g_settings->setFloat(
+                                    setting->m_setting_id,
+                                    static_cast<float>(calculateSliderValueFromPosition(
+                                            m_settings_slider_boxes[m_sliding_slider_index],
+                                            core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y),
+                                            setting->m_min,
+                                            setting->m_max,
+                                            setting->m_steps
+                                        )
+                                    )
+                                );
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -442,7 +624,7 @@ void EclipseMenu::updateAnimationProgress(float dtime) {
     // handle generic animations
     for (size_t i = 0; i < m_animations.size(); ++i) {
         float diff = m_animation_targets[i] - m_animations[i];
-        float step = anim_speed * dtime;
+        float step = (anim_speed * m_animation_speeds[i]) * dtime;
 
         if (std::abs(diff) <= step) {
             // close enough to snap to target
@@ -465,6 +647,21 @@ void EclipseMenu::setAnimationTarget(std::string id, double target)
     m_animation_ids.emplace_back(id);
     m_animations.emplace_back(target);
     m_animation_targets.emplace_back(target);
+    m_animation_speeds.emplace_back(1.0);
+}
+
+void EclipseMenu::setAnimationSpeed(std::string id, double speed)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            m_animation_speeds[i] = speed;
+            return;
+        }
+    }
+    m_animation_ids.emplace_back(id);
+    m_animations.emplace_back(0.0);
+    m_animation_targets.emplace_back(0.0);
+    m_animation_speeds.emplace_back(speed);
 }
 
 double EclipseMenu::getAnimation(std::string id)
@@ -841,10 +1038,110 @@ void draw_text_shrink_to_fit(
     }
 }
 
+void EclipseMenu::draw_dropdown_options(video::IVideoDriver *driver, gui::IGUIFont *font, ColorTheme theme, std::vector<ModCategory *> categories)
+{
+    std::string current_module_name = g_settings->get("eclipse.current_module");
+
+    m_dropdown_option_boxes.clear();
+    m_dropdown_option_names.clear();
+
+    for (auto cat : categories) {
+        for (auto mod : cat->mods) {
+            if (mod->m_name == current_module_name) {
+                for (auto setting : mod->m_mod_settings) {
+                    if (m_selecting_dropdown_index + 1 <= m_settings_dropdown_names.size() && setting->m_name == m_settings_dropdown_names[m_selecting_dropdown_index]) {
+
+                        setAnimationSpeed(setting->m_name + "_dropdown_open", 2.0);
+                        double anim_progress = getAnimation(setting->m_name + "_dropdown_open");
+
+                        if (anim_progress >= 0.05f) {
+                            for(size_t i = 0; i < setting->m_options.size(); ++i) 
+                            {
+                                bool is_last_option = (i == setting->m_options.size() - 1);
+
+                                s32 option_height = applyScalingFactorS32(40) * anim_progress;
+                                core::rect<s32> option_rect(
+                                    m_settings_dropdown_boxes[m_selecting_dropdown_index].UpperLeftCorner.X,
+                                    m_settings_dropdown_boxes[m_selecting_dropdown_index].LowerRightCorner.Y + (i * option_height),
+                                    m_settings_dropdown_boxes[m_selecting_dropdown_index].LowerRightCorner.X,
+                                    m_settings_dropdown_boxes[m_selecting_dropdown_index].LowerRightCorner.Y + ((i + 1) * option_height)
+                                );
+
+                                m_dropdown_option_boxes.push_back(option_rect);
+                                m_dropdown_option_names.push_back(*setting->m_options[i]);
+
+                                if (is_last_option) {// Draw background
+                                    drawRoundedRectShadow(
+                                        driver,
+                                        option_rect,
+                                        theme.secondary,
+                                        0,
+                                        0,
+                                        applyScalingFactorS32(5),
+                                        applyScalingFactorS32(5),
+                                        2, 4, 0.1f
+                                    );
+                                    core::rect<s32> outline_rect(
+                                        m_settings_dropdown_boxes[m_selecting_dropdown_index].UpperLeftCorner.X,
+                                        m_settings_dropdown_boxes[m_selecting_dropdown_index].LowerRightCorner.Y,
+                                        option_rect.LowerRightCorner.X,
+                                        option_rect.LowerRightCorner.Y
+                                    );
+                                    double color_anim = easeInOutCubic(getAnimation(setting->m_name + "_dropdown_hover"));
+                                    video::SColor outline_color = lerpColor(theme.text_muted, theme.text, static_cast<f32>(color_anim));
+                                    driver->draw2DRoundedRectangleOutline(
+                                        outline_rect,
+                                        outline_color,
+                                        applyScalingFactorS32(2),
+                                        0,
+                                        0,
+                                        applyScalingFactorS32(4),
+                                        applyScalingFactorS32(4)
+                                    );
+                                } else {
+                                    driver->draw2DRectangle(
+                                        theme.secondary,
+                                        option_rect
+                                    );
+                                }
+                                
+
+                                // Hover overlay
+                                setAnimationSpeed(setting->m_name + "_option_" + std::to_string(i) + "_hover", 2.0);
+                                setAnimationTarget(setting->m_name + "_option_" + std::to_string(i) + "_hover", option_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+                                u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(setting->m_name + "_option_" + std::to_string(i) + "_hover")) * 64);
+                                video::SColor highlight = theme.secondary_muted;
+                                highlight.setAlpha(highlight_alpha);
+                                driver->draw2DRoundedRectangle(option_rect, highlight, applyScalingFactorS32(5));
+
+                                // Draw option text
+                                const std::string opt_str = *setting->m_options[i];
+                                std::wstring woption = utf8_to_wide(opt_str);
+                                draw_text_shrink_to_fit(
+                                    driver,
+                                    applyScalingFactorS32(20),
+                                    woption,
+                                    option_rect,
+                                    theme.text
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s32> clip, core::rect<s32> topbar_clip, gui::IGUIFont *font, std::vector<ModCategory *> categories, ColorTheme theme, float dtime)
 {
     m_settings_toggle_boxes.clear();
     m_settings_toggle_names.clear();
+    m_settings_slider_boxes.clear();
+    m_settings_slider_names.clear();
+    m_settings_slider_knob_boxes.clear();
+    m_settings_dropdown_boxes.clear();
+    m_settings_dropdown_names.clear();
 
     std::string current_category_name = g_settings->get("eclipse.current_category");
     ModCategory* current_category = nullptr;
@@ -868,7 +1165,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
             for (auto* mod : cat->mods) {
                 if (mod->m_name == current_module_name) {
                     current_module = mod;
-                    setting_path = cat->m_name + " > " + mod->m_name;
+                    setting_path = cat->m_name + " ► " + mod->m_name;
                     break;
                 }
             }
@@ -1050,7 +1347,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
                 std::wstring wsetting_name = utf8_to_wide(setting->m_name);
                 draw_text_shrink_to_fit(
                     driver,
-                    applyScalingFactorS32(24),
+                    applyScalingFactorS32(20),
                     wsetting_name,
                     text_rect,
                     theme.text,
@@ -1130,20 +1427,276 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
                     draw2DThickLine(driver, {corner_x, corner_y}, {x2, y2}, theme.text, checkmark_width, &settings_area);
                 }
 
-            } else if (setting->m_type == "slider_int") {
-            //    TODO
-            } else if (setting->m_type == "slider_float") {
-            //    TODO
+            } else if (setting->m_type == "slider_int" || setting->m_type == "slider_float") {
+                // Draw text label at top
+                core::rect<s32> text_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 2) - applyScalingFactorS32(10)
+                );
+                std::wstring wsetting_name = utf8_to_wide(setting->m_name);
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(20),
+                    wsetting_name,
+                    text_rect,
+                    theme.text,
+                    &settings_area
+                );
+
+                // Draw current value in box at middle right
+                std::wstring wsetting_value;
+                if (setting->m_type == "slider_int") {
+                    int value = g_settings->getS32(setting->m_setting_id);
+                    wsetting_value = std::to_wstring(value);
+                } else { // slider_float
+                    float value = g_settings->getFloat(setting->m_setting_id);
+                    wsetting_value = std::to_wstring(value);
+                    // Trim all trailing 0s after decimal point
+                    size_t decimal_pos = wsetting_value.find(L'.');
+                    if (decimal_pos != std::wstring::npos) {
+                        size_t end_pos = wsetting_value.size() - 1;
+                        while (end_pos > decimal_pos + 1 && wsetting_value[end_pos] == L'0') {
+                            end_pos--;
+                        }
+                        if (end_pos == decimal_pos) {
+                            end_pos++; // keep one decimal place
+                        }
+                        wsetting_value = wsetting_value.substr(0, end_pos + 1);
+                    }
+                }
+                core::rect<s32> value_rect = core::rect<s32>(
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(70),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 2) + applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(10)
+                );
+
+                drawRoundedRectShadow(
+                    driver,
+                    value_rect,
+                    theme.secondary,
+                    applyScalingFactorS32(6),
+                    applyScalingFactorS32(6),
+                    applyScalingFactorS32(6),
+                    applyScalingFactorS32(6),
+                    2, 4, 0.1f,
+                    &settings_area
+                );
+
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(20),
+                    wsetting_value,
+                    value_rect,
+                    theme.text,
+                    &settings_area
+                );
+
+                // Draw slider bar at bottom
+                core::rect<s32> slider_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(20),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 2) + applyScalingFactorS32(20),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(80),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(20)
+                );
+                f32 slider_value = 0.0f;
+                slider_value = (static_cast<f32>(g_settings->getFloat(setting->m_setting_id)) - setting->m_min) / (setting->m_max - setting->m_min);
+                core::rect<s32> filled_rect = core::rect<s32>(
+                    slider_rect.UpperLeftCorner.X,
+                    slider_rect.UpperLeftCorner.Y,
+                    slider_rect.UpperLeftCorner.X + static_cast<s32>(slider_rect.getWidth() * slider_value),
+                    slider_rect.LowerRightCorner.Y
+                );
+                s32 knob_size = slider_rect.getHeight();
+                s32 knob_x = filled_rect.LowerRightCorner.X - knob_size / 2;
+                core::rect<s32> knob_rect(
+                    knob_x,
+                    slider_rect.UpperLeftCorner.Y - applyScalingFactorS32(10),
+                    knob_x + knob_size,
+                    slider_rect.LowerRightCorner.Y + applyScalingFactorS32(10)
+                );
+
+                m_settings_slider_boxes.push_back(slider_rect);
+                m_settings_slider_knob_boxes.push_back(knob_rect);
+                m_settings_slider_names.push_back(setting->m_name);
+
+                bool is_sliding = false;
+                if (m_sliding_slider) {
+                    if (m_sliding_slider_index >= 0 && m_sliding_slider_index < m_settings_slider_names.size()) {
+                        if (m_settings_slider_names[m_sliding_slider_index] == setting->m_name) {
+                            is_sliding = true;
+                        }
+                    }
+                }
+
+                setAnimationTarget(setting->m_name + "_slider_hover", slider_rect.isPointInside(m_current_mouse_pos) || knob_rect.isPointInside(m_current_mouse_pos) || is_sliding ? 1.0 : 0.0);
+                setAnimationTarget(setting->m_name + "_slider_knob_pressed", is_sliding ? 1.0 : 0.0);
+                f32 adjustment = static_cast<f32>((easeInOutCubic(getAnimation(setting->m_name + "_slider_hover"))) - (0.5f * easeInOutCubic(getAnimation(setting->m_name + "_slider_knob_pressed"))));
+                slider_rect = core::rect<s32>(
+                    slider_rect.UpperLeftCorner.X - static_cast<s32>(applyScalingFactorDouble(3.0 * adjustment)),
+                    slider_rect.UpperLeftCorner.Y - static_cast<s32>(applyScalingFactorDouble(3.0 * adjustment)),
+                    slider_rect.LowerRightCorner.X + static_cast<s32>(applyScalingFactorDouble(3.0 * adjustment)),
+                    slider_rect.LowerRightCorner.Y + static_cast<s32>(applyScalingFactorDouble(3.0 * adjustment))
+                );
+                filled_rect = core::rect<s32>(
+                    slider_rect.UpperLeftCorner.X,
+                    slider_rect.UpperLeftCorner.Y,
+                    slider_rect.UpperLeftCorner.X + static_cast<s32>(slider_rect.getWidth() * slider_value),
+                    slider_rect.LowerRightCorner.Y
+                );
+                // Draw filled background
+                driver->draw2DRoundedRectangle(
+                    slider_rect,
+                    theme.text_muted,
+                    applyScalingFactorS32(4),
+                    &settings_area
+                );
+
+                // Draw remaining background
+
+                driver->draw2DRoundedRectangle(
+                    filled_rect,
+                    theme.enabled,
+                    applyScalingFactorS32(4),
+                    &settings_area
+                );
+
+                // Draw slider square knob
+                setAnimationTarget(setting->m_name + "_slider_knob_hover", knob_rect.isPointInside(m_current_mouse_pos) || is_sliding ? 1.0 : 0.0);
+                adjustment = static_cast<f32>((easeInOutCubic(getAnimation(setting->m_name + "_slider_knob_hover"))) - (0.5f * easeInOutCubic(getAnimation(setting->m_name + "_slider_knob_pressed"))));
+                knob_rect = core::rect<s32>(
+                    knob_rect.UpperLeftCorner.X - static_cast<s32>(applyScalingFactorDouble(3.0 * adjustment)),
+                    knob_rect.UpperLeftCorner.Y - static_cast<s32>(applyScalingFactorDouble(4.0 * adjustment)),
+                    knob_rect.LowerRightCorner.X + static_cast<s32>(applyScalingFactorDouble(3.0 * adjustment)),
+                    knob_rect.LowerRightCorner.Y + static_cast<s32>(applyScalingFactorDouble(4.0 * adjustment))
+                );
+                driver->draw2DRoundedRectangle(
+                    knob_rect,
+                    theme.text,
+                    applyScalingFactorS32(4),
+                    &settings_area
+                );
+                
             } else if (setting->m_type == "text") {
             //    TODO
             } else if (setting->m_type == "dropdown") {
-            //    TODO
+                m_settings_dropdown_names.push_back(setting->m_name);
+                size_t current_index = m_settings_dropdown_names.size() - 1;
+                setAnimationTarget(setting->m_name + "_dropdown_open", m_selecting_dropdown && m_selecting_dropdown_index == current_index ? 1.0 : 0.0);
+                // Draw text label at top
+                core::rect<s32> text_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 2) - applyScalingFactorS32(10)
+                );
+                std::wstring wsetting_name = utf8_to_wide(setting->m_name);
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(20),
+                    wsetting_name,
+                    text_rect,
+                    theme.text,
+                    &settings_area
+                );
+
+                // Draw dropdown box at bottom
+                core::rect<s32> dropdown_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(20),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 2),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(20),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(10)
+                );
+
+                m_settings_dropdown_boxes.push_back(dropdown_rect);
+
+                double anim_progress = easeInOutCubic(getAnimation(setting->m_name + "_dropdown_open"));
+                // Draw dropdown background
+                drawRoundedRectShadow(
+                    driver,
+                    dropdown_rect,
+                    theme.secondary,
+                    applyScalingFactorS32(4),
+                    applyScalingFactorS32(4),
+                    applyScalingFactorS32(4) * (1 - anim_progress),
+                    applyScalingFactorS32(4) * (1 - anim_progress),
+                    2, 4, 0.1f,
+                    &settings_area
+                );
+
+                // Draw current selected option
+                std::string current_option = g_settings->get(setting->m_setting_id);
+                std::wstring wcurrent_option = utf8_to_wide(current_option);
+                core::rect<s32> option_text_rect = core::rect<s32>(
+                    dropdown_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    dropdown_rect.UpperLeftCorner.Y,
+                    dropdown_rect.LowerRightCorner.X - (dropdown_rect.getHeight() + applyScalingFactorS32(10)),
+                    dropdown_rect.LowerRightCorner.Y
+                );
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(20),
+                    wcurrent_option,
+                    option_text_rect,
+                    theme.text,
+                    &settings_area
+                );
+
+                // Draw dropdown arrow
+                core::rect<s32> arrow_rect = core::rect<s32>(
+                    dropdown_rect.LowerRightCorner.X - dropdown_rect.getHeight(),
+                    dropdown_rect.UpperLeftCorner.Y,
+                    dropdown_rect.LowerRightCorner.X,
+                    dropdown_rect.LowerRightCorner.Y
+                );
+
+                s32 arrow_center_x = arrow_rect.getCenter().X;
+                s32 arrow_center_y = arrow_rect.getCenter().Y;
+                s32 arrow_size = (dropdown_rect.getHeight() / 3) & ~1; // Ensure this is always even
+                double anim_offset = (easeInOutCubic(getAnimation(setting->m_name + "_dropdown_open")) * 2.0f) - 1.0f;
+                s32 arrow_offset = ((arrow_size / 2) * anim_offset);
+                core::vector2d<s32> arrow_center = core::vector2d<s32>(arrow_center_x, (arrow_center_y + arrow_offset));
+                core::vector2d<s32> arrow_left = core::vector2d<s32>((arrow_center_x - arrow_size), (arrow_center_y - arrow_offset));
+                core::vector2d<s32> arrow_right = core::vector2d<s32>((arrow_center_x + arrow_size), (arrow_center_y - arrow_offset));
+                bool is_open = m_selecting_dropdown && m_selecting_dropdown_index == current_index;
+                setAnimationTarget(setting->m_name + "_dropdown_hover", dropdown_rect.isPointInside(m_current_mouse_pos) || is_open ? 1.0 : 0.0);
+                double color_anim = easeInOutCubic(getAnimation(setting->m_name + "_dropdown_hover"));
+                video::SColor arrow_color = lerpColor(theme.text_muted, theme.text, static_cast<f32>(color_anim));
+                draw2DThickLine(
+                    driver,
+                    arrow_left,
+                    arrow_center,
+                    arrow_color,
+                    applyScalingFactorDouble(2.0),
+                    &settings_area
+                );
+                draw2DThickLine(
+                    driver,
+                    arrow_center,
+                    arrow_right,
+                    arrow_color,
+                    applyScalingFactorDouble(2.0),
+                    &settings_area
+                );
+
+                // Draw dropdown outline
+                driver->draw2DRoundedRectangleOutline(
+                    dropdown_rect,
+                    arrow_color,
+                    applyScalingFactorS32(2),
+                    applyScalingFactorS32(4),
+                    applyScalingFactorS32(4),
+                    applyScalingFactorS32(4) * (1 - anim_progress),
+                    applyScalingFactorS32(4) * (1 - anim_progress),
+                    &settings_area
+                );
             }
 
             current_y += setting_height + setting_spacing;
         }
     }
-
 }
 
 void EclipseMenu::draw() 
@@ -1155,6 +1708,14 @@ void EclipseMenu::draw()
     ModCategory* current_category = nullptr;
 
     g_settings->setDefault("eclipse.current_module", "");
+
+    // Watch for changes in theme and scale
+    if (last_scale_factor != g_settings->get("eclipse_appearance.menu_scale") || last_theme_name != g_settings->get("eclipse_appearance.theme")) {
+        last_scale_factor = g_settings->get("eclipse_appearance.menu_scale");
+        last_theme_name = g_settings->get("eclipse_appearance.theme");
+        m_initialized = false;
+        this->create();
+    }
 
     // Find category by name
     for (auto* cat : categories) {
@@ -1266,5 +1827,6 @@ void EclipseMenu::draw()
         draw_categories_bar(driver, m_cat_bar_rect, font, current_category, theme, categories, dtime);
         draw_mods_list(driver, m_mods_list_rect, font, current_category, theme, dtime);
         draw_module_settings(driver, module_settings_rect, module_settings_topbar_rect, font, categories, theme, dtime);
+        draw_dropdown_options(driver, font, theme, categories);
     }
 } 

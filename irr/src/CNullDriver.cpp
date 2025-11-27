@@ -661,120 +661,150 @@ void CNullDriver::draw2DRoundedRectangleOutline(
     s32 radiusBottomLeft,
     const core::rect<s32> *clip)
 {
+    if (width <= 0)
+        return;
+
     auto clampToClip = [&](f32 &x, f32 &y) {
         if (clip && clip->getArea() != 0)
         {
-            x = core::clamp((s32)x, clip->UpperLeftCorner.X, clip->LowerRightCorner.X);
-            y = core::clamp((s32)y, clip->UpperLeftCorner.Y, clip->LowerRightCorner.Y);
+            x = core::clamp(x, (f32)clip->UpperLeftCorner.X, (f32)clip->LowerRightCorner.X);
+            y = core::clamp(y, (f32)clip->UpperLeftCorner.Y, (f32)clip->LowerRightCorner.Y);
         }
     };
-
-    if (width <= 0)
-        return; // nothing to draw
 
     s32 w = pos.getWidth();
     s32 h = pos.getHeight();
 
-    // Clamp radii to half width/height
-    radiusTopLeft     = core::min_(radiusTopLeft, core::min_(w/2, h/2));
-    radiusTopRight    = core::min_(radiusTopRight, core::min_(w/2, h/2));
+    // Clamp radii
+    radiusTopLeft     = core::min_(radiusTopLeft,     core::min_(w/2, h/2));
+    radiusTopRight    = core::min_(radiusTopRight,    core::min_(w/2, h/2));
     radiusBottomRight = core::min_(radiusBottomRight, core::min_(w/2, h/2));
-    radiusBottomLeft  = core::min_(radiusBottomLeft, core::min_(w/2, h/2));
+    radiusBottomLeft  = core::min_(radiusBottomLeft,  core::min_(w/2, h/2));
 
     core::array<video::S3DVertex> verts;
     core::array<u16> indices;
 
+    // Add quad (same as fill version)
     auto addQuad = [&](f32 ax, f32 ay, f32 bx, f32 by, f32 cx, f32 cy, f32 dx, f32 dy)
     {
         u16 base = verts.size();
-        clampToClip(ax, ay);
-        clampToClip(bx, by);
-        clampToClip(cx, cy);
-        clampToClip(dx, dy);
-        verts.push_back(video::S3DVertex(ax, ay, 0,0,0,-1,color,0,0));
-        verts.push_back(video::S3DVertex(bx, by, 0,0,0,-1,color,0,0));
-        verts.push_back(video::S3DVertex(cx, cy, 0,0,0,-1,color,0,0));
-        verts.push_back(video::S3DVertex(dx, dy, 0,0,0,-1,color,0,0));
-        u16 idx[6] = {base, (u16)(base+1), (u16)(base+2), base, (u16)(base+2), (u16)(base+3)};
-        for(int i=0;i<6;i++) indices.push_back(idx[i]);
+        clampToClip(ax, ay); clampToClip(bx, by);
+        clampToClip(cx, cy); clampToClip(dx, dy);
+
+        verts.push_back({ax, ay, 0,0,0,-1,color,0,0});
+        verts.push_back({bx, by, 0,0,0,-1,color,0,0});
+        verts.push_back({cx, cy, 0,0,0,-1,color,0,0});
+        verts.push_back({dx, dy, 0,0,0,-1,color,0,0});
+
+        u16 idx[6] = {base, (u16)(base+1), (u16)(base+2),
+                      base, (u16)(base+2), (u16)(base+3)};
+        for (int i=0;i<6;i++) indices.push_back(idx[i]);
     };
 
-    auto addCornerArc = [&](f32 cx, f32 cy, s32 radiusOuter, s32 radiusInner, f32 startAngle)
+    // Corner strip (outer arc + inner arc, same radius!)
+    auto addCornerStrip = [&](f32 cx, f32 cy, f32 radius, f32 startDeg)
     {
-        if(radiusOuter <= 0)
+        if (radius <= 0)
             return;
 
-        int segments = core::max_(8, radiusOuter/2);
+        // EXACT same hacky radius correction as fill version:
+        f32 adjRadius = radius;
+        if (startDeg == 90)       adjRadius -= 0.5f;
+        else if (startDeg == 180) adjRadius -= 1.0f;
+        else if (startDeg == 270) adjRadius -= 0.5f;
+
+        int segments = core::clamp(adjRadius / 2.0f, 2.0f, 12.0f);
         u16 base = verts.size();
 
-        for(int i=0;i<=segments;i++)
+        for (int i = 0; i <= segments; ++i)
         {
-            f32 ang = startAngle + (core::PI/2.f) * ((f32)i / segments);
-            f32 cosA = cosf(ang);
-            f32 sinA = sinf(ang);
+            f32 angDeg = (startDeg + 180) + (90.0f * ((f32)i / segments));
+            f32 ang = angDeg * core::DEGTORAD;
 
-            f32 xOuter = cx + cosA * radiusOuter;
-            f32 yOuter = cy + sinA * radiusOuter;
-            f32 xInner = cx + cosA * core::max_(radiusOuter - width, 0);
-            f32 yInner = cy + sinA * core::max_(radiusOuter - width, 0);
+            // Outer arc (same radius)
+            f32 ox = cx + cosf(ang) * adjRadius;
+            f32 oy = cy + sinf(ang) * adjRadius;
 
-            clampToClip(xOuter, yOuter);
-            clampToClip(xInner, yInner);
+            // Inner arc (offset inward along the normal by width)
+            f32 ix = ox - cosf(ang) * width;
+            f32 iy = oy - sinf(ang) * width;
 
-            verts.push_back(video::S3DVertex(xOuter, yOuter, 0,0,0,-1,color,0,0));
-            verts.push_back(video::S3DVertex(xInner, yInner, 0,0,0,-1,color,0,0));
+            clampToClip(ox, oy);
+            clampToClip(ix, iy);
+
+            verts.push_back({ox, oy, 0,0,0,-1,color,0,0});
+            verts.push_back({ix, iy, 0,0,0,-1,color,0,0});
         }
 
-        for(int i=0;i<segments;i++)
+        // Build triangles
+        for (int i = 0; i < segments; ++i)
         {
             u16 i0 = base + i*2;
             u16 i1 = base + i*2 + 1;
             u16 i2 = base + i*2 + 2;
             u16 i3 = base + i*2 + 3;
+
             indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
             indices.push_back(i2); indices.push_back(i3); indices.push_back(i1);
         }
     };
 
+    f32 x = pos.UpperLeftCorner.X;
+    f32 y = pos.UpperLeftCorner.Y;
+    f32 x2 = pos.LowerRightCorner.X;
+    f32 y2 = pos.LowerRightCorner.Y;
+
+    // ---- SIDES (4 quads) with NO radius change ----
+
     // Top
-    addQuad(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y,
-            pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y,
-            pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + width,
-            pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + width);
+    addQuad(
+        x + radiusTopLeft, y,
+        x2 - radiusTopRight, y,
+        x2 - radiusTopRight, y + width,
+        x + radiusTopLeft, y + width
+    );
 
     // Bottom
-    addQuad(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - width,
-            pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - width,
-            pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y,
-            pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y);
+    addQuad(
+        x + radiusBottomLeft, y2 - width,
+        x2 - radiusBottomRight, y2 - width,
+        x2 - radiusBottomRight, y2,
+        x + radiusBottomLeft, y2
+    );
 
     // Left
-    addQuad(pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y + radiusTopLeft,
-            pos.UpperLeftCorner.X + width, pos.UpperLeftCorner.Y + radiusTopLeft,
-            pos.UpperLeftCorner.X + width, pos.LowerRightCorner.Y - radiusBottomLeft,
-            pos.UpperLeftCorner.X, pos.LowerRightCorner.Y - radiusBottomLeft);
+    addQuad(
+        x, y + radiusTopLeft,
+        x + width, y + radiusTopLeft,
+        x + width, y2 - radiusBottomLeft,
+        x, y2 - radiusBottomLeft
+    );
 
     // Right
-    addQuad(pos.LowerRightCorner.X - width, pos.UpperLeftCorner.Y + radiusTopRight,
-            pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + radiusTopRight,
-            pos.LowerRightCorner.X, pos.LowerRightCorner.Y - radiusBottomRight,
-            pos.LowerRightCorner.X - width, pos.LowerRightCorner.Y - radiusBottomRight);
+    addQuad(
+        x2 - width, y + radiusTopRight,
+        x2,        y + radiusTopRight,
+        x2,        y2 - radiusBottomRight,
+        x2 - width, y2 - radiusBottomRight
+    );
 
-    // Corners
-    addCornerArc(pos.UpperLeftCorner.X + radiusTopLeft, pos.UpperLeftCorner.Y + radiusTopLeft, radiusTopLeft, width, core::PI);
-    addCornerArc(pos.LowerRightCorner.X - radiusTopRight, pos.UpperLeftCorner.Y + radiusTopRight, radiusTopRight, width, -core::PI/2.f);
-    addCornerArc(pos.LowerRightCorner.X - radiusBottomRight, pos.LowerRightCorner.Y - radiusBottomRight, radiusBottomRight, width, 0.f);
-    addCornerArc(pos.UpperLeftCorner.X + radiusBottomLeft, pos.LowerRightCorner.Y - radiusBottomLeft, radiusBottomLeft, width, core::PI/2.f);
+    // ---- CORNERS (4 arc strips) using identical math to fill version ----
+
+    addCornerStrip(x + radiusTopLeft,     y + radiusTopLeft,     radiusTopLeft,     0);
+    addCornerStrip(x2 - radiusTopRight,   y + radiusTopRight,    radiusTopRight,    90);
+    addCornerStrip(x2 - radiusBottomRight, y2 - radiusBottomRight, radiusBottomRight, 180);
+    addCornerStrip(x + radiusBottomLeft,  y2 - radiusBottomLeft, radiusBottomLeft,  270);
 
     // Submit
     SMaterial m;
-    m.ZBuffer = ECFN_NEVER;
     m.MaterialType = EMT_TRANSPARENT_VERTEX_ALPHA;
     setMaterial(m);
 
-    draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
-                               indices.const_pointer(), indices.size()/3,
-                               EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT);
+    draw2DVertexPrimitiveList(
+        verts.const_pointer(), verts.size(),
+        indices.const_pointer(), indices.size() / 3,
+        EVT_STANDARD, scene::EPT_TRIANGLES, EIT_16BIT
+    );
 }
 
 //! Draw a 2d rectangle outline with rounded corners

@@ -57,7 +57,7 @@ core.mod_categories = {
                         name = "Theme",
                         description = "Select Theme",
                         type = "dropdown",
-                        options = {"Default", "Default Light", "Midnight", "Moss", "Ocean", "Outdoors"},
+                        options = {"Default", "Default Light"},
                         default = "Default",
                         setting_id = "eclipse_appearance.theme"
                     },
@@ -91,7 +91,7 @@ core.mod_categories = {
                         default = 0.5,
                         min = 0,
                         max = 1,
-                        steps = 20,
+                        steps = 21,
                         setting_id = "eclipse_notifications.volume"
                     }
                 }
