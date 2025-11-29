@@ -302,6 +302,130 @@ bool GUIEngine::loadMainMenuScript()
 	return false;
 }
 
+void GUIEngine::updateAnimationProgress(float dtime) {
+    float anim_speed = 4.0f;
+
+    // handle generic animations
+    for (size_t i = 0; i < m_animations.size(); ++i) {
+        float diff = m_animation_targets[i] - m_animations[i];
+        float step = (anim_speed * m_animation_speeds[i]) * dtime;
+
+        if (std::abs(diff) <= step) {
+            // close enough to snap to target
+            m_animations[i] = m_animation_targets[i];
+        } else {
+            // move toward target by step
+            m_animations[i] += (diff > 0 ? step : -step);
+        }
+    }
+}
+
+void GUIEngine::setAnimationTarget(std::string id, double target)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            m_animation_targets[i] = target;
+            return;
+        }
+    }
+    m_animation_ids.emplace_back(id);
+    m_animations.emplace_back(target);
+    m_animation_targets.emplace_back(target);
+    m_animation_speeds.emplace_back(1.0);
+}
+
+void GUIEngine::setAnimationSpeed(std::string id, double speed)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            m_animation_speeds[i] = speed;
+            return;
+        }
+    }
+    m_animation_ids.emplace_back(id);
+    m_animations.emplace_back(0.0);
+    m_animation_targets.emplace_back(0.0);
+    m_animation_speeds.emplace_back(speed);
+}
+
+void GUIEngine::setAnimationInstant(std::string id, double value)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            m_animations[i] = value;
+            m_animation_targets[i] = value;
+            return;
+        }
+    }
+    m_animation_ids.emplace_back(id);
+    m_animations.emplace_back(value);
+    m_animation_targets.emplace_back(value);
+    m_animation_speeds.emplace_back(1.0);
+}
+
+double GUIEngine::getAnimation(std::string id)
+{
+    for (size_t i = 0; i < m_animation_ids.size(); ++i) {
+        if (m_animation_ids[i] == id) {
+            return m_animations[i];
+        }
+    }
+	return 0.0;
+}
+
+video::SColor GUIEngine::lerpColor(const video::SColor& start, const video::SColor& end, float progress)
+{
+    progress = std::clamp(progress, 0.0f, 1.0f);
+
+    float a0 = static_cast<float>(start.getAlpha());
+    float r0 = static_cast<float>(start.getRed());
+    float g0 = static_cast<float>(start.getGreen());
+    float b0 = static_cast<float>(start.getBlue());
+
+    float a1 = static_cast<float>(end.getAlpha());
+    float r1 = static_cast<float>(end.getRed());
+    float g1 = static_cast<float>(end.getGreen());
+    float b1 = static_cast<float>(end.getBlue());
+
+    auto lerp = [&](float s, float e) {
+        return s + (e - s) * progress;
+    };
+
+    float af = lerp(a0, a1);
+    float rf = lerp(r0, r1);
+    float gf = lerp(g0, g1);
+    float bf = lerp(b0, b1);
+
+    auto toByte = [](float v) -> u32 {
+        return static_cast<u32>(std::round(std::clamp(v, 0.0f, 255.0f)));
+    };
+
+    u32 a = toByte(af);
+    u32 r = toByte(rf);
+    u32 g = toByte(gf);
+    u32 b = toByte(bf);
+
+    return video::SColor(a, r, g, b);
+}
+
+ColorTheme GUIEngine::lerpTheme(const ColorTheme& a, const ColorTheme& b, float t) {
+    ColorTheme result;
+    result.background = lerpColor(a.background, b.background, t);
+    result.background_bottom = lerpColor(a.background_bottom, b.background_bottom, t);
+    result.background_top = lerpColor(a.background_top, b.background_top, t);
+    result.border = lerpColor(a.border, b.border, t);
+    result.enabled = lerpColor(a.enabled, b.enabled, t);
+    result.disabled = lerpColor(a.disabled, b.disabled, t);
+    result.primary = lerpColor(a.primary, b.primary, t);
+    result.primary_muted = lerpColor(a.primary_muted, b.primary_muted, t);
+    result.secondary = lerpColor(a.secondary, b.secondary, t);
+    result.secondary_muted = lerpColor(a.secondary_muted, b.secondary_muted, t);
+    result.text = lerpColor(a.text, b.text, t);
+    result.text_muted = lerpColor(a.text_muted, b.text_muted, t);
+    result.wallpaper = lerpColor(a.wallpaper, b.wallpaper, t);
+    return result;
+}
+
 /******************************************************************************/
 void GUIEngine::run()
 {
@@ -310,6 +434,10 @@ void GUIEngine::run()
 	theme_manager.LoadThemes(themes_path);
 	current_theme_name = g_settings->get("eclipse_appearance.theme");
 	current_theme = theme_manager.GetThemeByName(current_theme_name);
+	target_theme = current_theme;
+	last_theme_name = current_theme_name;
+	old_theme = current_theme;
+	setAnimationInstant("theme_transition", 1.0);
 
 	IrrlichtDevice *device = m_rendering_engine->get_raw_device();
 	video::IVideoDriver *driver = device->getVideoDriver();
@@ -492,6 +620,22 @@ void GUIEngine::drawBackground(video::IVideoDriver *driver, f32 dtime)
 
     // Wave amplitude
     const float base_amplitude = 30.0f;
+
+	updateAnimationProgress(dtime);
+
+	// Handle theme transition
+
+	if (g_settings->get("eclipse_appearance.theme") != last_theme_name) {
+        old_theme = target_theme;
+        current_theme_name = g_settings->get("eclipse_appearance.theme");
+        target_theme = theme_manager.GetThemeByName(current_theme_name);
+        last_theme_name = current_theme_name;
+        setAnimationInstant("theme_transition", 0.0);
+        setAnimationTarget("theme_transition", 1.0);
+    }
+
+    double theme_transition = getAnimation("theme_transition");
+    current_theme = lerpTheme(old_theme, target_theme, theme_transition);
 
 	video::SColor start_color = current_theme.primary;
 	video::SColor end_color = current_theme.primary_muted;

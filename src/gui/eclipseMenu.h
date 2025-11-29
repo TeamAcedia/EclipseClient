@@ -64,8 +64,11 @@ public:
     EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu);
     EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu);
 
-    void create();
-    void close();
+	void updateTheming();
+	void updateScaling();
+
+	void create();
+	void close();
 
     virtual bool OnEvent(const SEvent& event) override;
     virtual void draw() override;
@@ -78,7 +81,9 @@ private:
     std::string themes_path;
     ThemeManager theme_manager;
     std::string current_theme_name;
+    ColorTheme target_theme;
     ColorTheme current_theme;
+    ColorTheme old_theme;
 
     IMenuManager* m_menumgr; 
     Client* m_client;
@@ -90,6 +95,7 @@ private:
     void updateAnimationProgress(float dtime);
     void setAnimationTarget(std::string id, double target);
     void setAnimationSpeed(std::string id, double speed);
+    void setAnimationInstant(std::string id, double value);
     double getAnimation(std::string id);
 
     bool m_is_open = false; 
@@ -99,6 +105,9 @@ private:
 
     double base_scaling_factor = 100.0;
     double active_scaling_factor = 0.0;
+    double last_base_scaling_factor = 100.0;
+    double target_base_scaling_factor = 100.0;
+    double old_base_scaling_factor = 100.0;
 
     void calculateActiveScaling(s32 screen_width, s32 screen_height);
 

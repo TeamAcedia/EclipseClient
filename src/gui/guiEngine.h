@@ -220,11 +220,29 @@ private:
 	 */
 	void drawBackground(video::IVideoDriver *driver, f32 dtime);
 
+    void updateAnimationProgress(float dtime);
+    void setAnimationTarget(std::string id, double target);
+    void setAnimationSpeed(std::string id, double speed);
+    void setAnimationInstant(std::string id, double value);
+    double getAnimation(std::string id);
+
+	video::SColor lerpColor(const video::SColor &start, const video::SColor &end, float progress);
+
+	ColorTheme lerpTheme(const ColorTheme &a, const ColorTheme &b, float t);
+
+	std::vector<double> m_animations;
+    std::vector<double> m_animation_targets;
+    std::vector<double> m_animation_speeds;
+    std::vector<std::string> m_animation_ids;
+
 	float m_wave_offset = 0.0f;
 	std::string themes_path;
 	ThemeManager theme_manager;
 	std::string current_theme_name;
 	ColorTheme current_theme;
+    std::string last_theme_name = "";
+    ColorTheme target_theme;
+    ColorTheme old_theme;
 
 	/**
 	 * draw overlay layer

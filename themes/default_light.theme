@@ -1,7 +1,7 @@
 [theme]
 name = Default Light
 
-wallpaper         = hsl(0, 0%, 90%)
+wallpaper         = hsl(0, 0%, 20%)
 
 background-top    = hsl(0, 0%, 98%)
 background        = hsl(0, 0%, 96%)
