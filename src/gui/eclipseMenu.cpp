@@ -561,83 +561,143 @@ bool EclipseMenu::OnEvent(const SEvent& event)
     return Parent ? Parent->OnEvent(event) : false; 
 }
 
+static void clipAgainstEdge(
+    core::array<core::vector2df> &poly,
+    const core::rect<s32> &clip,
+    int edge)
+{
+    core::array<core::vector2df> out;
+
+    auto inside = [&](const core::vector2df &p)
+    {
+        switch (edge)
+        {
+            case 0: return p.X >= clip.UpperLeftCorner.X;        // left
+            case 1: return p.X <= clip.LowerRightCorner.X;       // right
+            case 2: return p.Y >= clip.UpperLeftCorner.Y;        // top
+            case 3: return p.Y <= clip.LowerRightCorner.Y;       // bottom
+        }
+        return true;
+    };
+
+    auto intersect = [&](const core::vector2df &a, const core::vector2df &b)
+    {
+        float dx = b.X - a.X;
+        float dy = b.Y - a.Y;
+
+        switch (edge)
+        {
+            case 0: // left
+            {
+                float t = (clip.UpperLeftCorner.X - a.X) / dx;
+                return core::vector2df(clip.UpperLeftCorner.X, a.Y + t*dy);
+            }
+            case 1: // right
+            {
+                float t = (clip.LowerRightCorner.X - a.X) / dx;
+                return core::vector2df(clip.LowerRightCorner.X, a.Y + t*dy);
+            }
+            case 2: // top
+            {
+                float t = (clip.UpperLeftCorner.Y - a.Y) / dy;
+                return core::vector2df(a.X + t*dx, clip.UpperLeftCorner.Y);
+            }
+            case 3: // bottom
+            {
+                float t = (clip.LowerRightCorner.Y - a.Y) / dy;
+                return core::vector2df(a.X + t*dx, clip.LowerRightCorner.Y);
+            }
+        }
+        return a;
+    };
+
+    for (u32 i = 0; i < poly.size(); i++)
+    {
+        core::vector2df A = poly[i];
+        core::vector2df B = poly[(i+1) % poly.size()];
+
+        bool Ain = inside(A);
+        bool Bin = inside(B);
+
+        if (Ain && Bin)
+        {
+            out.push_back(B);
+        }
+        else if (Ain && !Bin)
+        {
+            out.push_back(intersect(A, B)); 
+        }
+        else if (!Ain && Bin)
+        {
+            out.push_back(intersect(A, B)); 
+            out.push_back(B);
+        }
+    }
+
+    poly = out;
+}
+
 void draw2DThickLine(
     video::IVideoDriver* driver,
     core::vector2d<s32> start,
     core::vector2d<s32> end,
     video::SColor color,
     f32 width,
-    const core::rect<s32>* clip = nullptr)
+    const core::rect<s32>* clip)
 {
     if (!driver || width <= 0.0f) return;
+
+    float dx = float(end.X - start.X);
+    float dy = float(end.Y - start.Y);
+    float len = sqrtf(dx*dx + dy*dy);
+    if (len <= 0.0f) return;
+    dx /= len; dy /= len;
+
+    float px = -dy * width * 0.5f;
+    float py =  dx * width * 0.5f;
+
+    core::array<core::vector2df> poly;
+    poly.push_back(core::vector2df(start.X + px, start.Y + py));
+    poly.push_back(core::vector2df(start.X - px, start.Y - py));
+    poly.push_back(core::vector2df(end.X - px,   end.Y - py));
+    poly.push_back(core::vector2df(end.X + px,   end.Y + py));
+
+    if (clip)
+    {
+        for (int edge = 0; edge < 4; edge++)
+            clipAgainstEdge(poly, *clip, edge);
+
+        if (poly.size() < 3)
+            return; // fully clipped away
+    }
 
     core::array<video::S3DVertex> verts;
     core::array<u16> indices;
 
-    // Helper lambda for clipping vertices
-    auto clampToClip = [&](f32 &x, f32 &y) {
-        if (clip && clip->getArea() != 0)
-        {
-            x = core::clamp(x, (f32)clip->UpperLeftCorner.X, (f32)clip->LowerRightCorner.X);
-            y = core::clamp(y, (f32)clip->UpperLeftCorner.Y, (f32)clip->LowerRightCorner.Y);
-        }
-    };
+    for (u32 i = 0; i < poly.size(); i++) {
+        const core::vector2df &p = poly[i];
+        verts.push_back(video::S3DVertex(p.X, p.Y, 0, 0,0,-1, color, 0,0));
+    }
 
-    // Compute direction vector
-    f32 dx = (f32)(end.X - start.X);
-    f32 dy = (f32)(end.Y - start.Y);
+    for (u32 i = 1; i+1 < poly.size(); i++)
+    {
+        indices.push_back(0);
+        indices.push_back(i);
+        indices.push_back(i+1);
+    }
 
-    f32 length = sqrtf(dx*dx + dy*dy);
-    if (length == 0.0f) return;
-
-    // Normalize direction
-    dx /= length;
-    dy /= length;
-
-    // Perpendicular vector (for width)
-    f32 px = -dy * width * 0.5f;
-    f32 py = dx * width * 0.5f;
-
-    // Compute four corners of the rectangle
-    f32 x0 = (f32)start.X + px;
-    f32 y0 = (f32)start.Y + py;
-    f32 x1 = (f32)start.X - px;
-    f32 y1 = (f32)start.Y - py;
-    f32 x2 = (f32)end.X - px;
-    f32 y2 = (f32)end.Y - py;
-    f32 x3 = (f32)end.X + px;
-    f32 y3 = (f32)end.Y + py;
-
-    // Clamp to clip if provided
-    clampToClip(x0, y0);
-    clampToClip(x1, y1);
-    clampToClip(x2, y2);
-    clampToClip(x3, y3);
-
-    // Add vertices
-    u16 base = verts.size();
-    verts.push_back(video::S3DVertex(x0, y0, 0,0,0,-1, color, 0, 0));
-    verts.push_back(video::S3DVertex(x1, y1, 0,0,0,-1, color, 0, 0));
-    verts.push_back(video::S3DVertex(x2, y2, 0,0,0,-1, color, 0, 0));
-    verts.push_back(video::S3DVertex(x3, y3, 0,0,0,-1, color, 0, 0));
-
-    // Add two triangles for the rectangle
-    indices.push_back(base);
-    indices.push_back(base+1);
-    indices.push_back(base+2);
-
-    indices.push_back(base);
-    indices.push_back(base+2);
-    indices.push_back(base+3);
-
-    // Draw
     video::SMaterial m;
     m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
     driver->setMaterial(m);
-    driver->draw2DVertexPrimitiveList(verts.const_pointer(), verts.size(),
-                                      indices.const_pointer(), indices.size()/3,
-                                      video::EVT_STANDARD, scene::EPT_TRIANGLES, video::EIT_16BIT);
+
+    driver->draw2DVertexPrimitiveList(
+        verts.const_pointer(), verts.size(),
+        indices.const_pointer(), indices.size()/3,
+        video::EVT_STANDARD,
+        scene::EPT_TRIANGLES,
+        video::EIT_16BIT);
 }
+
 
 // Simple helper to draw a rounded rectangle with a drop shadow
 void drawRoundedRectShadow(
