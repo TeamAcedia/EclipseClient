@@ -50,7 +50,7 @@ core.mod_categories = {
             {
                 name = "Appearance",
                 description = "Customize Client Appearance",
-                icon = "appearance.png",
+                icon = "eclipse_appearance.png",
                 setting_id = "eclipse_appearance",
                 settings = {
                     {
@@ -74,7 +74,7 @@ core.mod_categories = {
             {
                 name = "Notifications",
                 description = "Manage notifications",
-                icon = "notifications.png",
+                icon = "",
                 setting_id = "eclipse_notifications",
                 settings = {
                     {
@@ -99,7 +99,7 @@ core.mod_categories = {
             {
                 name = "Performance",
                 description = "Client performance tweaks",
-                icon = "performance.png",
+                icon = "",
                 setting_id = "eclipse_performance",
                 settings = {
                     {
@@ -129,7 +129,7 @@ core.mod_categories = {
             {
                 name = "Combat",
                 description = "Combat assistance settings",
-                icon = "combat.png",
+                icon = "",
                 setting_id = "eclipse_combat",
                 settings = {
                     {
@@ -161,7 +161,7 @@ core.mod_categories = {
             {
                 name = "Movement",
                 description = "Movement tweaks",
-                icon = "movement.png",
+                icon = "",
                 setting_id = "eclipse_movement",
                 settings = {
                     {
@@ -191,7 +191,7 @@ core.mod_categories = {
             {
                 name = "Logging",
                 description = "Adjust debug logging",
-                icon = "logging.png",
+                icon = "",
                 setting_id = "eclipse_logging",
                 settings = {
                     {
@@ -222,7 +222,7 @@ core.mod_categories = {
             {
                 name = "Network",
                 description = "Network debug tools",
-                icon = "network.png",
+                icon = "",
                 setting_id = "eclipse_network",
                 settings = {
                     {

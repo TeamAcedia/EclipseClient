@@ -21,9 +21,11 @@ EclipseMenu::EclipseMenu(
     s32 id, 
     IMenuManager *menumgr, 
     MainMenuScripting *script,
-    bool is_main_menu
+    bool is_main_menu,
+    ISimpleTextureSource *texture_src
 )
     : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)), 
+    m_texture_src(texture_src),
     m_menumgr(menumgr),
     m_script(script),
     m_is_main_menu(is_main_menu)
@@ -38,9 +40,11 @@ EclipseMenu::EclipseMenu(
     s32 id, 
     IMenuManager* menumgr, 
     Client* client,
-    bool is_main_menu
+    bool is_main_menu,
+    ISimpleTextureSource *texture_src
 )
     : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)), 
+    m_texture_src(texture_src),
     m_menumgr(menumgr),
     m_client(client),
     m_is_main_menu(is_main_menu)
@@ -1101,6 +1105,57 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             draw2DThickLine(driver, {corner_x, corner_y}, {x2, y2}, theme.text, checkmark_width, &clip);
         }
 
+        // Draw mod icon if available
+        video::ITexture *icon_texture = nullptr;
+
+        if (!mod->m_icon.empty()) {
+            if (m_is_main_menu) { // if on main menu, get full path
+                icon_texture = m_texture_src->getTexture(porting::path_share + DIR_DELIM + "textures" + DIR_DELIM + "base" + DIR_DELIM + "pack" + DIR_DELIM + mod->m_icon);
+            } else {
+                icon_texture = m_texture_src->getTexture(mod->m_icon);
+            }
+        }
+        if (!icon_texture || (icon_texture->getSize().Width == 1 && icon_texture->getSize().Height == 1)) {
+            if (m_is_main_menu) { // if on main menu, get full path
+                icon_texture = m_texture_src->getTexture(porting::path_share + DIR_DELIM + "textures" + DIR_DELIM + "base" + DIR_DELIM + "pack" + DIR_DELIM + "eclipse_icon_placeholder.png");
+            } else {
+                icon_texture = m_texture_src->getTexture("eclipse_icon_placeholder.png");
+            }
+        }
+        if (icon_texture) {
+            core::dimension2d<u32> size = icon_texture->getSize();
+            float icon_aspect = (float)size.Width / size.Height;
+            float rect_aspect = (float)mod_icon_rect.getWidth() / mod_icon_rect.getHeight();
+
+            core::rect<s32> icon_draw_rect = mod_icon_rect;
+
+            if (icon_aspect > rect_aspect) {
+                s32 new_height = (s32)(mod_icon_rect.getWidth() / icon_aspect);
+                s32 y_offset = (mod_icon_rect.getHeight() - new_height) / 2;
+                icon_draw_rect.UpperLeftCorner.Y += y_offset;
+                icon_draw_rect.LowerRightCorner.Y = icon_draw_rect.UpperLeftCorner.Y + new_height;
+            } else {
+                s32 new_width = (s32)(mod_icon_rect.getHeight() * icon_aspect);
+                s32 x_offset = (mod_icon_rect.getWidth() - new_width) / 2;
+                icon_draw_rect.UpperLeftCorner.X += x_offset;
+                icon_draw_rect.LowerRightCorner.X = icon_draw_rect.UpperLeftCorner.X + new_width;
+            }
+            const video::SColor temp[4] = {
+                theme.text,
+                theme.text,
+                theme.text,
+                theme.text,
+            };
+
+            driver->draw2DImage(
+                icon_texture,
+                icon_draw_rect,
+                core::rect<s32>(core::vector2d<s32>(0, 0), size),
+                &clip,
+                temp,
+                true
+            );
+        }
 
         // Layout positioning
         x_index++;

@@ -25,6 +25,7 @@
 #include "porting.h"
 #include "filesys.h"
 #include "scripting_mainmenu.h"
+#include "client/texturesource.h"
 
 using namespace gui;
 
@@ -61,8 +62,8 @@ using namespace gui;
 class EclipseMenu: public IGUIElement
 {
 public:
-    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu);
-    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu);
+    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu, ISimpleTextureSource *texture_src);
+    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu, ISimpleTextureSource *texture_src);
 
 	void updateTheming();
 	void updateScaling();
@@ -78,6 +79,8 @@ public:
 
     bool m_initialized = false;
 private:
+    ISimpleTextureSource *m_texture_src = nullptr;
+
     std::string themes_path;
     ThemeManager theme_manager;
     std::string current_theme_name;
