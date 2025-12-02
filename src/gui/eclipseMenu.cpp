@@ -226,6 +226,12 @@ void EclipseMenu::create()
 
 void EclipseMenu::close()
 {
+    for (auto& pair : m_settings_textboxes_map) {
+        EclipseEditBox* edit_box = pair.second.textbox;
+        delete edit_box;
+    }
+    m_settings_textboxes_map.clear();
+
     Environment->removeFocus(this);
     m_menumgr->deletingMenu(this);
     IGUIElement::setVisible(false);
@@ -236,6 +242,31 @@ bool EclipseMenu::OnEvent(const SEvent& event)
 {
     if (!m_is_open) {
         return false;
+    }
+
+    // Check edit boxes first
+    if (!m_sliding_slider && !m_selecting_dropdown) {
+        for (auto& pair : m_settings_textboxes_map) {
+            EclipseEditBox* edit_box = pair.second.textbox;
+            std::string parent_mod_name = pair.second.parent_mod_name;
+            std::string parent_category_name = pair.second.parent_category_name;
+            core::rect<s32> clipRect = pair.second.clipRect;
+            if (g_settings->get("eclipse.current_module") != parent_mod_name || g_settings->get("eclipse.current_category") != parent_category_name) {
+                continue;
+            }
+            // if mouse event ensure its in clip rect
+            if (event.EventType == EET_MOUSE_INPUT_EVENT && !(event.MouseInput.Event == EMIE_MOUSE_WHEEL)) {
+                if (!clipRect.isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) {
+                    edit_box->loseFocus();
+                    continue;
+                }
+            }
+
+            if (edit_box->handleEvent(event)) {
+                g_settings->set( pair.second.setting_id, edit_box->getTextUtf8());
+                return true;
+            }
+        }
     }
 
     GET_CATEGORIES_OR_RETURN_BOOL(categories);
@@ -1024,7 +1055,7 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
         drawRoundedRectShadow(driver, mod_rect, theme.secondary, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
 
         // Hover overlay
-        setAnimationTarget(mod->m_name + "_hover", mod_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+        setAnimationTarget(mod->m_name + "_hover", mod_rect.isPointInside(m_current_mouse_pos) && clip.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
         u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(mod->m_name + "_hover")) * 64);
         video::SColor highlight = theme.secondary_muted;
         highlight.setAlpha(highlight_alpha);
@@ -1410,7 +1441,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
     s32 total_height = setting_spacing;
     if (current_module) {
         for (auto& setting : current_module->m_mod_settings) {
-            total_height += applyScalingFactorS32(get_setting_render_height(*setting)) + setting_spacing;
+            total_height += (applyScalingFactorS32(get_setting_render_height(*setting)) + setting_spacing * 2);
         }
     } else {
         const int lineHeight = font->getDimension(L"A").Height;  // height of one line
@@ -1511,7 +1542,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
             );
 
             // Draw hover overlay
-            setAnimationTarget(setting->m_name + "_hover", setting_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+            setAnimationTarget(setting->m_name + "_hover", setting_rect.isPointInside(m_current_mouse_pos) && settings_area.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
             u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(setting->m_name + "_hover")) * 64);
             video::SColor highlight = theme.secondary_muted;
             highlight.setAlpha(highlight_alpha);
@@ -1761,7 +1792,43 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
                 );
                 
             } else if (setting->m_type == "text") {
-            //    TODO
+                // Draw text label at top
+                core::rect<s32> text_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 8)
+                );
+                std::wstring wsetting_name = utf8_to_wide(setting->m_name);
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(20),
+                    wsetting_name,
+                    text_rect,
+                    theme.text,
+                    &settings_area
+                );
+
+                // Create eclipse edit box if not existing
+                core::rect<s32> edit_box_rect = core::rect<s32>(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 8) + applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(10)
+                );
+                if (m_settings_textboxes_map.find(setting->m_name) == m_settings_textboxes_map.end()) {
+                    EclipseEditBox* edit_box = new EclipseEditBox(Environment);
+                    m_settings_textboxes_map[setting->m_name] = {edit_box, settings_area, current_module_name, current_category_name, setting->m_setting_id};
+                    edit_box->setTextUtf8(g_settings->get(setting->m_setting_id));
+                    edit_box->setEditorRect(edit_box_rect);
+                }
+
+                // Draw edit box
+                EclipseEditBox* edit_box = m_settings_textboxes_map[setting->m_name].textbox;
+                m_settings_textboxes_map[setting->m_name] = {edit_box, settings_area, current_module_name, current_category_name, setting->m_setting_id};
+                edit_box->setEditorRect(edit_box_rect);
+                edit_box->draw(driver, dtime, font, settings_area, theme, applyScalingFactorS32(4));
+
             } else if (setting->m_type == "dropdown") {
                 m_settings_dropdown_names.push_back(setting->m_name);
                 size_t current_index = m_settings_dropdown_names.size() - 1;

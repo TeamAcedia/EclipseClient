@@ -26,6 +26,7 @@
 #include "filesys.h"
 #include "scripting_mainmenu.h"
 #include "client/texturesource.h"
+#include "eclipseEditBox.h"
 
 using namespace gui;
 
@@ -58,6 +59,14 @@ using namespace gui;
             return false;                                   \
         categories = m_script->m_categories;                \
     }
+
+struct TextboxData {
+    EclipseEditBox* textbox;
+    core::rect<s32> clipRect;
+    std::string parent_mod_name;
+    std::string parent_category_name;
+    std::string setting_id;
+};
 
 class EclipseMenu: public IGUIElement
 {
@@ -171,6 +180,8 @@ private:
     std::vector<std::string> m_settings_dropdown_names;
     std::vector<core::rect<s32>> m_dropdown_option_boxes;
     std::vector<std::string> m_dropdown_option_names;
+
+    std::unordered_map<std::string, TextboxData> m_settings_textboxes_map;
 
     core::rect<s32> current_path_rect;
 
