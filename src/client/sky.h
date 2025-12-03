@@ -79,7 +79,7 @@ public:
 	void setStarDayOpacity(f32 day_opacity) { m_star_params.day_opacity = day_opacity; }
 	void setStarSeed(u64 star_seed);
 
-	bool getCloudsVisible() const { return m_clouds_visible && m_clouds_enabled; }
+	bool getCloudsVisible();
 	const video::SColorf &getCloudColor() const { return m_cloudcolor_f; }
 
 	void setVisible(bool visible) { m_visible = visible; }
@@ -218,6 +218,13 @@ private:
 	void draw_stars(video::IVideoDriver *driver, float wicked_time_of_day);
 	void place_sky_body(std::array<video::S3DVertex, 4> &vertices,
 		float horizon_position,	float day_position);
+
+	video::IImage *rotateImage90(video::IVideoDriver *driver, video::IImage *src, int angle);
+	std::vector<std::string> splitCubemap(video::IVideoDriver *driver, video::ITexture *cubemap, const std::string &base);
+
+	std::unordered_map<video::ITexture*, std::vector<std::string>> cache;
+	RenderingEngine *m_rendering_engine;
+	ITextureSource *m_tsrc;
 };
 
 // calculates value for sky body positions for the given observed time of day

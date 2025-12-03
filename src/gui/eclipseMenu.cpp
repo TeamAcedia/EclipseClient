@@ -1212,7 +1212,7 @@ s32 get_setting_render_height(ModSetting& setting)
         return base_height * 2;
 
     else if (setting.m_type == "text")
-        return base_height * 6;
+        return (base_height * 2) + static_cast<s32>(base_height * setting.m_size);
 
     else if (setting.m_type == "dropdown")
         return base_height * 2;
@@ -1438,7 +1438,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
 
     // Calculate total height of settings content
     const s32 setting_spacing = applyScalingFactorS32(15);
-    s32 total_height = setting_spacing;
+    s32 total_height = setting_spacing * 2;
     if (current_module) {
         for (auto& setting : current_module->m_mod_settings) {
             total_height += (applyScalingFactorS32(get_setting_render_height(*setting)) + setting_spacing * 2);
@@ -1795,9 +1795,9 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
                 // Draw text label at top
                 core::rect<s32> text_rect = core::rect<s32>(
                     setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
-                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y,
                     setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
-                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 8)
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(50)
                 );
                 std::wstring wsetting_name = utf8_to_wide(setting->m_name);
                 draw_text_shrink_to_fit(
@@ -1812,7 +1812,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
                 // Create eclipse edit box if not existing
                 core::rect<s32> edit_box_rect = core::rect<s32>(
                     setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
-                    setting_rect.UpperLeftCorner.Y + (setting_rect.getHeight() / 8) + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(50),
                     setting_rect.LowerRightCorner.X - applyScalingFactorS32(10),
                     setting_rect.LowerRightCorner.Y - applyScalingFactorS32(10)
                 );

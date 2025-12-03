@@ -43,6 +43,8 @@
     - Only include fields relevant to the type; others can be omitted.
 --]]
 
+local skybox_options = {"Dawn", "Day", "Dusk", "Night", "Galaxy", "Aurora", "Sunset", "Fog", "Clouds"}
+
 core.mod_categories = {
     {
         name = "Client",
@@ -70,177 +72,70 @@ core.mod_categories = {
                         setting_id = "eclipse_appearance.menu_scale"
                     }
                 }
-            },
-            {
-                name = "Notifications",
-                description = "Manage notifications",
-                icon = "",
-                setting_id = "eclipse_notifications",
-                settings = {
-                    {
-                        name = "Enable Notifications",
-                        description = "Toggle all notifications",
-                        type = "bool",
-                        default = true,
-                        setting_id = "eclipse_notifications.enabled"
-                    },
-                    {
-                        name = "Notification Volume",
-                        description = "Adjust volume for alerts",
-                        type = "slider_float",
-                        default = 0.5,
-                        min = 0,
-                        max = 1,
-                        steps = 21,
-                        setting_id = "eclipse_notifications.volume"
-                    }
-                }
-            },
-            {
-                name = "Performance",
-                description = "Client performance tweaks",
-                icon = "",
-                setting_id = "eclipse_performance",
-                settings = {
-                    {
-                        name = "Enable FPS Cap",
-                        description = "Limit the framerate",
-                        type = "bool",
-                        default = true,
-                        setting_id = "eclipse_performance.fps_cap_enabled"
-                    },
-                    {
-                        name = "FPS Limit",
-                        description = "Set maximum FPS",
-                        type = "slider_int",
-                        default = 144,
-                        min = 30,
-                        max = 240,
-                        steps = 21,
-                        setting_id = "eclipse_performance.fps_limit"
-                    }
-                }
             }
         }
     },
     {
-        name = "Gameplay",
+        name = "Render",
         mods = {
             {
-                name = "Combat",
+                name = "Skybox",
                 description = "Combat assistance settings",
-                icon = "",
-                setting_id = "eclipse_combat",
+                icon = "eclipse_skybox.png",
+                setting_id = "eclipse_skybox",
                 settings = {
                     {
-                        name = "Auto Aim",
-                        description = "Enable auto targeting",
+                        name = "Disable Clouds",
+                        description = "Toggle whether or not to render clouds",
                         type = "bool",
                         default = false,
-                        setting_id = "eclipse_combat.auto_aim"
+                        setting_id = "eclipse_skybox.disable_clouds"
                     },
                     {
-                        name = "Reticle Size",
-                        description = "Adjust reticle size",
-                        type = "slider_int",
-                        default = 10,
-                        min = 5,
-                        max = 20,
-                        steps = 16,
-                        setting_id = "eclipse_combat.reticle_size"
-                    },
-                    {
-                        name = "Damage Display",
-                        description = "Show damage numbers on hits",
-                        type = "bool",
-                        default = true,
-                        setting_id = "eclipse_combat.show_damage"
-                    }
-                }
-            },
-            {
-                name = "Movement",
-                description = "Movement tweaks",
-                icon = "",
-                setting_id = "eclipse_movement",
-                settings = {
-                    {
-                        name = "Sprint Toggle",
-                        description = "Enable toggle for sprint",
+                        name = "Disable Sun / Moon",
+                        description = "Toggle whether or not to render the sun and moon",
                         type = "bool",
                         default = false,
-                        setting_id = "eclipse_movement.sprint_toggle"
+                        setting_id = "eclipse_skybox.disable_sun_moon"
                     },
                     {
-                        name = "Step Height",
-                        description = "Height player can step up automatically",
-                        type = "slider_float",
-                        default = 0.5,
-                        min = 0,
-                        max = 2,
-                        steps = 20,
-                        setting_id = "eclipse_movement.step_height"
-                    }
-                }
-            }
-        }
-    },
-    {
-        name = "Debug",
-        mods = {
-            {
-                name = "Logging",
-                description = "Adjust debug logging",
-                icon = "",
-                setting_id = "eclipse_logging",
-                settings = {
-                    {
-                        name = "Enable Logging",
-                        description = "Toggle debug logging",
+                        name = "Use Custom Skybox",
+                        description = "Toggle whether or not to use a custom skybox",
                         type = "bool",
-                        default = true,
-                        setting_id = "eclipse_logging.enabled"
+                        default = false,
+                        setting_id = "eclipse_skybox.use_custom_skybox"
                     },
                     {
-                        name = "Log Level",
-                        description = "Select verbosity",
+                        name = "Skybox Morning Texture",
+                        description = "Texture to use for the skybox",
                         type = "dropdown",
-                        options = {"Error", "Warning", "Info", "Debug"},
-                        default = "Info",
-                        setting_id = "eclipse_logging.level"
+                        options = skybox_options,
+                        default = "Dawn",
+                        setting_id = "eclipse_skybox.morning_texture"
                     },
                     {
-                        name = "Log File Path",
-                        description = "Path to save log files",
-                        type = "text",
-                        default = "logs/client.log",
-                        size = 1,
-                        setting_id = "eclipse_logging.path"
-                    }
-                }
-            },
-            {
-                name = "Network",
-                description = "Network debug tools",
-                icon = "",
-                setting_id = "eclipse_network",
-                settings = {
-                    {
-                        name = "Enable Ping Display",
-                        description = "Show server ping",
-                        type = "bool",
-                        default = true,
-                        setting_id = "eclipse_network.ping_display"
+                        name = "Skybox Day Texture",
+                        description = "Texture to use for the skybox",
+                        type = "dropdown",
+                        options = skybox_options,
+                        default = "Day",
+                        setting_id = "eclipse_skybox.day_texture"
                     },
                     {
-                        name = "Simulate Lag",
-                        description = "Add artificial lag for testing",
-                        type = "slider_int",
-                        default = 0,
-                        min = 0,
-                        max = 500,
-                        steps = 50,
-                        setting_id = "eclipse_network.simulated_lag"
+                        name = "Skybox Evening Texture",
+                        description = "Texture to use for the skybox",
+                        type = "dropdown",
+                        options = skybox_options,
+                        default = "Dusk",
+                        setting_id = "eclipse_skybox.evening_texture"
+                    },
+                    {
+                        name = "Skybox Night Texture",
+                        description = "Texture to use for the skybox",
+                        type = "dropdown",
+                        options = skybox_options,
+                        default = "Night",
+                        setting_id = "eclipse_skybox.night_texture"
                     }
                 }
             }

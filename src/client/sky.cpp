@@ -45,10 +45,136 @@ static inline void disableTextureFiltering(video::SMaterial &mat)
 	});
 }
 
+video::IImage* Sky::rotateImage90(
+    video::IVideoDriver* driver,
+    video::IImage* src,
+    int angle
+) {
+    angle = ((angle % 360) + 360) % 360;
+
+    core::dimension2du dim = src->getDimension();
+    u32 w = dim.Width;
+    u32 h = dim.Height;
+
+    video::IImage* dst = nullptr;
+
+    if (angle == 90 || angle == 270)
+        dst = driver->createImage(src->getColorFormat(), core::dimension2du(h, w));
+    else
+        dst = driver->createImage(src->getColorFormat(), core::dimension2du(w, h));
+
+    for (u32 y = 0; y < h; y++) {
+        for (u32 x = 0; x < w; x++) {
+            video::SColor c = src->getPixel(x, y);
+
+            switch (angle) {
+            case 90:  dst->setPixel(h - 1 - y, x, c); break;
+            case 180: dst->setPixel(w - 1 - x, h - 1 - y, c); break;
+            case 270: dst->setPixel(y, w - 1 - x, c); break;
+            default:  dst->setPixel(x, y, c); break;
+            }
+        }
+    }
+
+    return dst;
+}
+
+
+std::vector<std::string> Sky::splitCubemap(
+    video::IVideoDriver* driver,
+    video::ITexture* cubemap,
+    const std::string& baseName
+) {
+    std::vector<std::string> empty;
+    if (!driver || !cubemap)
+        return empty;
+
+    // check cache first
+    auto it = cache.find(cubemap);
+    if (it != cache.end()) {
+        return it->second;
+    }
+
+    video::IImage* full = driver->createImage(
+        cubemap,
+        core::position2di(0, 0),
+        cubemap->getOriginalSize()
+    );
+    if (!full)
+        return empty;
+
+    int w = full->getDimension().Width;
+    int h = full->getDimension().Height;
+
+    int face = h / 3;
+    if (w != face * 4) {
+        errorstream << "Sky::splitCubemap: invalid cubemap dimensions "
+            << "(" << w << "x" << h << "), expected 4:3 ratio." << std::endl;
+        full->drop();
+        return empty;
+    }
+
+    // positions of each face in the cross layout
+    core::rect<s32> FACE_POS[6] = {
+		{face*1, face*0, face*2, face*1},  // +Y
+		{face*1, face*2, face*2, face*3},  // -Y
+		{face*2, face*1, face*3, face*2},  // -X
+		{face*0, face*1, face*1, face*2},  // +X
+		{face*3, face*1, face*4, face*2},  // +Z
+		{face*1, face*1, face*2, face*2},  // -Z
+	};
+
+
+    // rotation for each face
+    int FACE_ROTATION[6] = {
+		90,    // +Y
+		270,   // -Y
+		0,     // -X
+		0,     // +X 
+		0,     // -Z 
+		0      // +Z 
+	};
+
+    std::vector<std::string> names;
+    names.reserve(6);
+
+    for (int i = 0; i < 6; i++) {
+        video::IImage* img = driver->createImage(
+            full->getColorFormat(),
+            core::dimension2du(face, face)
+        );
+
+        // copy face
+        full->copyTo(img, core::position2di(0, 0), FACE_POS[i]);
+
+        // apply rotation if needed
+        int rot = FACE_ROTATION[i] % 360;
+        if (rot != 0) {
+            video::IImage* rotated = rotateImage90(driver, img, rot);
+            img->drop();
+            img = rotated;
+        }
+
+        std::string texName = baseName + "_" + std::to_string(i);
+        video::ITexture* tex = driver->addTexture(texName.c_str(), img);
+        img->drop();
+
+        names.push_back(tex ? texName : "");
+    }
+
+    full->drop();
+    cache[cubemap] = names;
+    return names;
+}
+
+
+
 Sky::Sky(s32 id, RenderingEngine *rendering_engine, ITextureSource *tsrc, IShaderSource *ssrc) :
 		scene::ISceneNode(rendering_engine->get_scene_manager()->getRootSceneNode(),
 			rendering_engine->get_scene_manager(), id)
 {
+	m_rendering_engine = rendering_engine;
+	m_tsrc = tsrc;
 	m_seed = (u64)myrand() << 32 | myrand();
 
 	setAutomaticCulling(scene::EAC_OFF);
@@ -173,7 +299,65 @@ void Sky::render()
 			return;
 
 		// Draw the six sided skybox,
-		if (m_sky_params.textures.size() == 6) {
+		if (g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox")) {
+			std::string setting_id = "";
+			float hour = m_time_of_day * 24.0f;
+
+			if (hour >= 19.5f || hour < 4.75f) {
+				setting_id = "eclipse_skybox.night_texture";
+			} else if (hour >= 4.75f && hour < 6.0f) {
+				setting_id = "eclipse_skybox.morning_texture";
+			} else if (hour >= 6.0f && hour < 18.0f) {
+				setting_id = "eclipse_skybox.day_texture";
+			} else if (hour >= 18.0f && hour < 19.5f) {
+				setting_id = "eclipse_skybox.evening_texture";
+			}
+
+			std::string skybox_texture = "eclipse_skybox_" + g_settings->get(setting_id) + ".png";
+			video::ITexture* cubemap = m_tsrc->getTextureForMesh(skybox_texture);
+
+			auto* driver = m_rendering_engine->getVideoDriver();
+			std::vector<std::string> faces = splitCubemap(driver, cubemap, skybox_texture);
+			m_sky_params.textures.clear();
+			if (faces.size() == 6) {
+				for (int i = 0; i < 6; i++) {
+					video::SMaterial temp_material = baseMaterial();
+					temp_material.setTexture(0, driver->findTexture(faces[i].c_str()));
+					//disableTextureFiltering(temp_material);
+					temp_material.MaterialType = video::EMT_SOLID;
+
+					// Draw texture
+					video::SColor c(255, 255, 255, 255);
+					driver->setMaterial(temp_material);
+					vertices[0] = video::S3DVertex(-1.05, -1.05, -1.05, 0, 0, 1, c, t, t);
+					vertices[1] = video::S3DVertex( 1.05, -1.05, -1.05, 0, 0, 1, c, o, t);
+					vertices[2] = video::S3DVertex( 1.05,  1.05, -1.05, 0, 0, 1, c, o, o);
+					vertices[3] = video::S3DVertex(-1.05,  1.05, -1.05, 0, 0, 1, c, t, o);
+					for (video::S3DVertex &vertex : vertices) {
+						if (i == 0) { // Top texture
+							vertex.Pos.rotateYZBy(90);
+							vertex.Pos.rotateXZBy(90);
+						} else if (i == 1) { // Bottom texture
+							vertex.Pos.rotateYZBy(-90);
+							vertex.Pos.rotateXZBy(90);
+						} else if (i == 2) { // Left texture
+							vertex.Pos.rotateXZBy(90);
+						} else if (i == 3) { // Right texture
+							vertex.Pos.rotateXZBy(-90);
+						} else if (i == 4) { // Front texture, do nothing
+							// Irrlicht doesn't like it when vertexes are left
+							// alone and not rotated for some reason.
+							vertex.Pos.rotateXZBy(0);
+						} else {// Back texture
+							vertex.Pos.rotateXZBy(180);
+						}
+					}
+					driver->drawIndexedTriangleList(&vertices[0], 4, indices, 2);
+				}
+			}
+		}
+
+		if (m_sky_params.textures.size() == 6 && !g_settings->getBool("eclipse_skybox")) {
 			for (u32 j = 5; j < 11; j++) {
 				video::SColor c(255, 255, 255, 255);
 				driver->setMaterial(m_materials[j]);
@@ -207,7 +391,7 @@ void Sky::render()
 		}
 
 		// Draw far cloudy fog thing blended with skycolor
-		if (m_visible) {
+		if (m_visible && !(g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox"))) {
 			driver->setMaterial(m_materials[1]);
 			for (u32 j = 0; j < 4; j++) {
 				vertices[0] = video::S3DVertex(-1, -0.02, -1, 0, 0, 1, m_bgcolor, t, t);
@@ -233,12 +417,12 @@ void Sky::render()
 		}
 
 		// Draw stars before sun and moon to be behind them
-		if (m_star_params.visible)
+		if (m_star_params.visible && !(g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox")))
 			draw_stars(driver, wicked_time_of_day);
 
 		// Draw sunrise/sunset horizon glow texture
 		// (textures/base/pack/sunrisebg.png)
-		if (m_sun_params.sunrise_visible) {
+		if (m_sun_params.sunrise_visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && g_settings->getBool("eclipse_skybox"))) {
 			driver->setMaterial(m_materials[2]);
 			float mid1 = 0.25;
 			float mid = wicked_time_of_day < 0.5 ? mid1 : (1.0 - mid1);
@@ -263,16 +447,16 @@ void Sky::render()
 		}
 
 		// Draw sun
-		if (m_sun_params.visible)
+		if (m_sun_params.visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && g_settings->getBool("eclipse_skybox")))
 			draw_sun(driver, suncolor, suncolor2, wicked_time_of_day);
 
 		// Draw moon
-		if (m_moon_params.visible)
+		if (m_moon_params.visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && g_settings->getBool("eclipse_skybox")))
 			draw_moon(driver, mooncolor, mooncolor2, wicked_time_of_day);
 
 		// Draw far cloudy fog thing below all horizons in front of sun, moon
 		// and stars.
-		if (m_visible) {
+		if (m_visible && !(g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox"))) {
 			driver->setMaterial(m_materials[1]);
 
 			for (u32 j = 0; j < 4; j++) {
@@ -814,6 +998,11 @@ void Sky::setStarSeed(u64 star_seed)
 		m_star_params.star_seed = star_seed;
 		updateStars();
 	}
+}
+
+bool Sky::getCloudsVisible()
+{
+	return m_clouds_visible && m_clouds_enabled && !(g_settings->getBool("eclipse_skybox.disable_clouds") && g_settings->getBool("eclipse_skybox"));
 }
 
 void Sky::updateStars()
