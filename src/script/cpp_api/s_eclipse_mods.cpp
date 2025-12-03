@@ -49,13 +49,14 @@ void ModSetting::set_value(const std::string &value)
 
 // Mods class that stores mod information and settings
 
-Mod::Mod(const std::string &name, const std::string &setting_id, const std::string &description, const std::string &icon, const std::string &default_value)
+Mod::Mod(const std::string &name, const std::string &setting_id, const std::string &description, const std::string &icon, const std::string &default_value, const std::string &settings_only)
 {
 	m_name = name;
 	m_setting_id = setting_id;
 	m_description = description;
 	m_icon = icon;
 	m_default = (default_value == "true");
+	m_settings_only = (settings_only == "true");
 	g_settings->setDefault(m_setting_id, default_value);
 }
 
@@ -159,7 +160,13 @@ void ScriptApiEclipseMods::init_mods()
                             default_value = lua_toboolean(L, -1);
                         lua_pop(L, 1);
 
-                        Mod* mod = new Mod(mod_name, mod_setting_id, mod_desc, mod_icon, default_value ? "true" : "false");
+						bool settings_only = false;
+						lua_getfield(L, -1, "settings_only");
+						if (lua_isboolean(L, -1))
+							settings_only = lua_toboolean(L, -1);
+						lua_pop(L, 1);
+
+                        Mod* mod = new Mod(mod_name, mod_setting_id, mod_desc, mod_icon, default_value ? "true" : "false", settings_only ? "true" : "false");
 
                         // Iterate settings inside mod
 						lua_getfield(L, -1, "settings");

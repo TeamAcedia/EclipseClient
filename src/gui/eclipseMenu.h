@@ -74,6 +74,10 @@ public:
     EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu, ISimpleTextureSource *texture_src);
     EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu, ISimpleTextureSource *texture_src);
 
+	static void loadHSV(const std::string &key, float &H, float &S, float &V);
+
+	static video::SColor HSVtoSColor(float h, float s, float v);
+
 	void updateTheming();
 	void updateScaling();
 
@@ -141,6 +145,15 @@ private:
     core::rect<s32> m_cat_bar_rect;
 
     core::vector2d<s32> m_current_mouse_pos;
+    core::vector2d<s32> m_color_picker_mouse_pos;
+    video::ITexture* m_color_gradient_texture = nullptr;
+    video::ITexture* m_hue_gradient_texture = nullptr;
+    core::rect<s32> m_color_selector_box;
+    core::rect<s32> m_hue_slider_box;
+    core::rect<s32> m_color_selector_menu_box;
+    float m_last_gradient_hue = 0.0f;
+    bool m_color_selector_dragging = false;
+    bool m_hue_selector_dragging = false;
 
     std::vector<double> m_animations;
     std::vector<double> m_animation_targets;
@@ -164,6 +177,9 @@ private:
     bool m_selecting_dropdown = false;
     bool m_released_dropdown = false;
     size_t m_selecting_dropdown_index = 0;
+    bool m_picking_color = false;
+    ModSetting* m_picking_color_setting = nullptr;
+    core::rect<s32> m_color_picker_exit_box;
     
     std::vector<core::rect<s32>> m_mods_boxes;
     std::vector<core::rect<s32>> m_mods_toggle_boxes;
@@ -181,14 +197,20 @@ private:
     std::vector<core::rect<s32>> m_dropdown_option_boxes;
     std::vector<std::string> m_dropdown_option_names;
 
+    std::vector<core::rect<s32>> m_settings_color_boxes;
+    std::vector<std::string> m_settings_color_names;
+
     std::unordered_map<std::string, TextboxData> m_settings_textboxes_map;
 
     core::rect<s32> current_path_rect;
 
+	video::ITexture *generateColorGradientTexture(video::IVideoDriver *driver, float hue, const core::dimension2d<u32> &size);
+	video::ITexture *generateHueGradientTexture(video::IVideoDriver *driver, const core::dimension2d<u32> &size);
     void draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime);
     void draw_mods_list(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, float dtime);
     void draw_module_settings(video::IVideoDriver* driver, core::rect<s32> clip, core::rect<s32> topbar_clip, gui::IGUIFont* font, std::vector<ModCategory*> categories, ColorTheme theme, float dtime);
     void draw_dropdown_options(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme theme, std::vector<ModCategory *> categories);
+    void draw_color_picker(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories);
 };
 
 inline float easeInOutCubic(float t) {

@@ -17,13 +17,15 @@
                     name = "Mod Name",
                     description = "Short description of the mod",
                     icon = "icon_file.png",
+                    default = true | false, -- optional, defaults to false
+                    settings_only = true | false, -- optional, defaults to false ( if true, mod cannot be toggled, only settings can be changed )
                     setting_id = "unique.mod.identifier",
                     settings = {
                         {
                             name = "Setting Name",
                             description = "Short description of the setting",
-                            type = "bool" | "slider_int" | "slider_float" | "text" | "dropdown",
-                            default = <default_value>,
+                            type = "bool" | "slider_int" | "slider_float" | "text" | "dropdown" | "color_picker",
+                            default = <default_value> | "1,0,0", -- must match type, color_picker uses "H,S,V" format where H=0-1, S=0-1, V=0-1
                             min = <min_value>,       -- for sliders
                             max = <max_value>,       -- for sliders
                             steps = <num_steps>,     -- for sliders
@@ -54,6 +56,7 @@ core.mod_categories = {
                 description = "Customize Client Appearance",
                 icon = "eclipse_appearance.png",
                 setting_id = "eclipse_appearance",
+                settings_only = true,
                 settings = {
                     {
                         name = "Theme",
@@ -72,6 +75,22 @@ core.mod_categories = {
                         setting_id = "eclipse_appearance.menu_scale"
                     }
                 }
+            },
+            {
+                name = "Better Debug",
+                description = "Improved debug information display",
+                icon = "eclipse_debug.png",
+                setting_id = "eclipse_better_debug",
+                default = true,
+                settings = {
+                    {
+                        name = "Text Color",
+                        description = "Color of the debug text",
+                        type = "color_picker",
+                        default = "255,0,255,255",
+                        setting_id = "eclipse_better_debug.text_color"
+                    }
+                }
             }
         }
     },
@@ -83,6 +102,7 @@ core.mod_categories = {
                 description = "Combat assistance settings",
                 icon = "eclipse_skybox.png",
                 setting_id = "eclipse_skybox",
+                default = true,
                 settings = {
                     {
                         name = "Disable Clouds",

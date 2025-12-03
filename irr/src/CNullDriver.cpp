@@ -974,15 +974,8 @@ void CNullDriver::draw2DRectangle(SColor color, const core::rect<s32> &pos, cons
 }
 
 //! Draw a 2d rectangle outline
-void CNullDriver::draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width)
+void CNullDriver::draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width, const core::rect<s32> *clip)
 {
-	if (width <= 1) {
-		draw2DLine(pos.UpperLeftCorner, core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), color);
-		draw2DLine(core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), pos.LowerRightCorner, color);
-		draw2DLine(pos.LowerRightCorner, core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), color);
-		draw2DLine(core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), pos.UpperLeftCorner, color);
-	}
-	
 	core::recti topRect(
 		pos.UpperLeftCorner.X, pos.UpperLeftCorner.Y, 
 		pos.LowerRightCorner.X, pos.UpperLeftCorner.Y + width);
@@ -997,10 +990,10 @@ void CNullDriver::draw2DRectangleOutline(const core::recti& pos, SColor color, c
 		pos.LowerRightCorner.X, pos.LowerRightCorner.Y - width);
 
 	// Draw the rectangles
-	draw2DRectangle(color, topRect);
-	draw2DRectangle(color, bottomRect);
-	draw2DRectangle(color, leftRect);
-	draw2DRectangle(color, rightRect);
+	draw2DRectangle(color, topRect, clip);
+	draw2DRectangle(color, bottomRect, clip);
+	draw2DRectangle(color, leftRect, clip);
+	draw2DRectangle(color, rightRect, clip);
 }
 
 //! Draws a 2d rectangle with a gradient.

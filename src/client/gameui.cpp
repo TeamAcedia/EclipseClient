@@ -20,6 +20,7 @@
 #include "profiler.h"
 #include "renderingengine.h"
 #include "version.h"
+#include "gui/eclipseMenu.h"
 
 inline static const char *yawToDirectionString(int yaw)
 {
@@ -30,6 +31,29 @@ inline static const char *yawToDirectionString(int yaw)
 	yaw = (yaw + 45) % 360 / 90;
 
 	return direction[yaw];
+}
+
+inline static const char* getIrrlichtDevice()
+{
+	switch (RenderingEngine::get_raw_device()->getType()) {
+		case EIDT_WIN32: 
+			return "WIN32";
+		case EIDT_X11: 
+			return "X11";
+		case EIDT_OSX: 
+			return "OSX";
+		case EIDT_SDL: 
+			return "SDL";
+		case EIDT_ANDROID: 
+			return "ANDROID";
+		default: 
+			return "Unknown";
+	}
+}
+
+inline const char* getVideoDriver()
+{
+	return RenderingEngine::get_video_driver()->getName();
 }
 
 GameUI::GameUI()
@@ -89,79 +113,125 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 	const CameraOrientation &cam, const PointedThing &pointed_old,
 	const GUIChatConsole *chat_console, float dtime)
 {
+	const int fps_limit = (g_settings->getU64("fps_max"));
+
 	v2u32 screensize = RenderingEngine::getWindowSize();
 
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
 
-	s32 minimal_debug_height = 0;
+	v3f player_position = player->getPosition();
 
-	// Minimal debug text must only contain info that can't give a gameplay advantage
-	if (m_flags.show_minimal_debug) {
+	s32 minimal_debug_height = 0;
+	if (g_settings->getBool("eclipse_better_debug")) {
 		const u16 fps = 1.0 / stats.dtime_jitter.avg;
 		m_drawtime_avg *= 0.95f;
 		m_drawtime_avg += 0.05f * (stats.drawtime / 1000);
+		if (m_flags.show_basic_debug || m_flags.show_minimal_debug) {
+			std::ostringstream os(std::ios_base::binary);
+				os << std::fixed
+				<< PROJECT_NAME_C " "  << ECLIPSE_VERSION_STRING << std::endl
+				<< "FPS: " << fps << "/" << fps_limit << " | Driver: "  << getVideoDriver()
+				<< std::setprecision(0)
+				<< " | View range: "
+				<< (draw_control->range_all ? "Infinite" : itos(draw_control->wanted_range))
+				<< std::setprecision(2) << std::endl
+				<< "Irrlicht device: "<< getIrrlichtDevice() << std::endl
+				<< "Coords:  " << (player_position.X / BS)
+				<< ", " << (player_position.Y / BS)
+				<< ", " << (player_position.Z / BS) << std::endl
+				<< "Yaw: " << (wrapDegrees_0_360(cam.camera_yaw)) << "° "
+				<< yawToDirectionString(cam.camera_yaw)
+				<< " | Pitch: " << (-wrapDegrees_180(cam.camera_pitch)) << "°" << std::endl
+				<< "Seed: " << ((u64)client->getMapSeed()) << std::endl
+				<< "Drawtime: " << m_drawtime_avg << "ms"
+				<< std::setprecision(1)
+				<< " | Dtime jitter: "
+				<< (stats.dtime_jitter.max_fraction * 100.0) << "%"
+				<< std::setprecision(1) << std::endl
+				<< "RTT: " << (client->getRTT() * 1000.0f) << "ms";
 
-		std::ostringstream os(std::ios_base::binary);
-		os << std::fixed
-			<< PROJECT_NAME_C " " << g_version_hash
-			<< " | FPS: " << fps
-			<< std::setprecision(fps >= 100 ? 1 : 0)
-			<< " | drawtime: " << m_drawtime_avg << "ms"
-			<< std::setprecision(1)
-			<< " | dtime jitter: "
-			<< (stats.dtime_jitter.max_fraction * 100.0f) << "%"
-			<< std::setprecision(1)
-			<< " | view range: "
-			<< (draw_control->range_all ? "All" : itos(draw_control->wanted_range))
-			<< std::setprecision(2)
-			<< " | RTT: " << (client->getRTT() * 1000.0f) << "ms";
+			m_guitext->setRelativePosition(core::rect<s32>(5, 5, screensize.X, screensize.Y));
 
-		m_guitext->setRelativePosition(core::rect<s32>(5, 5, screensize.X, screensize.Y));
+			float H, S, V;
+			EclipseMenu::loadHSV("eclipse_better_debug.text_color", H, S, V);
+			video::SColor debug_color = EclipseMenu::HSVtoSColor(H, S, V);
+			m_guitext->setOverrideColor(debug_color);
+			setStaticText(m_guitext, utf8_to_wide(os.str()).c_str());
+			m_guitext2->setVisible(false);
+			m_guitext->setVisible(true);
+			minimal_debug_height = m_guitext->getTextHeight();
+		} else {
+			m_guitext->setVisible(false);
+			m_guitext2->setVisible(false);
+		}
+	} else {
+		if (m_flags.show_minimal_debug) {
+			const u16 fps = 1.0 / stats.dtime_jitter.avg;
+			m_drawtime_avg *= 0.95f;
+			m_drawtime_avg += 0.05f * (stats.drawtime / 1000);
 
-		setStaticText(m_guitext, utf8_to_wide(os.str()).c_str());
+			std::ostringstream os(std::ios_base::binary);
+			os << std::fixed
+				<< PROJECT_NAME_C " " << g_version_hash
+				<< " | FPS: " << fps
+				<< std::setprecision(fps >= 100 ? 1 : 0)
+				<< " | drawtime: " << m_drawtime_avg << "ms"
+				<< std::setprecision(1)
+				<< " | dtime jitter: "
+				<< (stats.dtime_jitter.max_fraction * 100.0f) << "%"
+				<< std::setprecision(1)
+				<< " | view range: "
+				<< (draw_control->range_all ? "All" : itos(draw_control->wanted_range))
+				<< std::setprecision(2)
+				<< " | RTT: " << (client->getRTT() * 1000.0f) << "ms";
 
-		minimal_debug_height = m_guitext->getTextHeight();
-	}
+			m_guitext->setRelativePosition(core::rect<s32>(5, 5, screensize.X, screensize.Y));
 
-	// Finally set the guitext visible depending on the flag
-	m_guitext->setVisible(m_flags.show_minimal_debug);
+			setStaticText(m_guitext, utf8_to_wide(os.str()).c_str());
 
-	// Basic debug text also shows info that might give a gameplay advantage
-	if (m_flags.show_basic_debug) {
-		v3f player_position = player->getPosition();
-
-		std::ostringstream os(std::ios_base::binary);
-		os << std::setprecision(1) << std::fixed
-			<< "pos: (" << (player_position.X / BS)
-			<< ", " << (player_position.Y / BS)
-			<< ", " << (player_position.Z / BS)
-			<< ") | yaw: " << (wrapDegrees_0_360(cam.camera_yaw)) << "° "
-			<< yawToDirectionString(cam.camera_yaw)
-			<< " | pitch: " << (-wrapDegrees_180(cam.camera_pitch)) << "°"
-			<< " | seed: " << ((u64)client->getMapSeed());
-
-		if (pointed_old.type == POINTEDTHING_NODE) {
-			ClientMap &map = client->getEnv().getClientMap();
-			const NodeDefManager *nodedef = client->getNodeDefManager();
-			MapNode n = map.getNode(pointed_old.node_undersurface);
-
-			if (n.getContent() != CONTENT_IGNORE) {
-				if (nodedef->get(n).name == "unknown") {
-					os << ", pointed: <unknown node>";
-				} else {
-					os << ", pointed: " << nodedef->get(n).name;
-				}
-				os << ", param2: " << (u64) n.getParam2();
-			}
+			minimal_debug_height = m_guitext->getTextHeight();
 		}
 
-		m_guitext2->setRelativePosition(core::rect<s32>(5, 5 + minimal_debug_height,
-				screensize.X, screensize.Y));
+		// Finally set the guitext visible depending on the flag
+		m_guitext->setVisible(m_flags.show_minimal_debug);
 
-		setStaticText(m_guitext2, utf8_to_wide(os.str()).c_str());
+		// Basic debug text also shows info that might give a gameplay advantage
+		if (m_flags.show_basic_debug) {
+
+			std::ostringstream os(std::ios_base::binary);
+			os << std::setprecision(1) << std::fixed
+				<< "pos: (" << (player_position.X / BS)
+				<< ", " << (player_position.Y / BS)
+				<< ", " << (player_position.Z / BS)
+				<< ") | yaw: " << (wrapDegrees_0_360(cam.camera_yaw)) << "° "
+				<< yawToDirectionString(cam.camera_yaw)
+				<< " | pitch: " << (-wrapDegrees_180(cam.camera_pitch)) << "°"
+				<< " | seed: " << ((u64)client->getMapSeed());
+
+			if (pointed_old.type == POINTEDTHING_NODE) {
+				ClientMap &map = client->getEnv().getClientMap();
+				const NodeDefManager *nodedef = client->getNodeDefManager();
+				MapNode n = map.getNode(pointed_old.node_undersurface);
+
+				if (n.getContent() != CONTENT_IGNORE) {
+					if (nodedef->get(n).name == "unknown") {
+						os << ", pointed: <unknown node>";
+					} else {
+						os << ", pointed: " << nodedef->get(n).name;
+					}
+					os << ", param2: " << (u64) n.getParam2();
+				}
+			}
+
+			m_guitext2->setRelativePosition(core::rect<s32>(5, 5 + minimal_debug_height,
+					screensize.X, screensize.Y));
+
+			setStaticText(m_guitext2, utf8_to_wide(os.str()).c_str());
+		}
+
+		m_guitext2->setVisible(m_flags.show_basic_debug);
 	}
-
-	m_guitext2->setVisible(m_flags.show_basic_debug);
+	
 
 	setStaticText(m_guitext_info, m_infotext.c_str());
 	m_guitext_info->setVisible(m_flags.show_hud && g_menumgr.menuCount() == 0);

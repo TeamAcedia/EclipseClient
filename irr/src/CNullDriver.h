@@ -171,7 +171,7 @@ public:
 	void draw2DRectangle(SColor color, const core::rect<s32> &pos, const core::rect<s32> *clip = 0) override;
 
 	//! Draws a 2d rectangle outline
-	void draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width = 1) override;
+	void draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width = 1, const core::rect<s32> *clip = 0) override;
 
 	//! Draws a 2d rectangle with a gradient.
 	virtual void draw2DRectangle(const core::rect<s32> &pos,

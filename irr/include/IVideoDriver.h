@@ -743,7 +743,7 @@ public:
 	virtual void draw2DRoundedRectangleOutline(const core::rect<s32> &pos, SColor color, s32 width, s32 radius, const core::rect<s32> *clip = 0) = 0;
 
 	//! Draws a 2d rectangle outline
-	virtual void draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width = 1) = 0;
+	virtual void draw2DRectangleOutline(const core::recti& pos, SColor color, const u32 width = 1, const core::rect<s32> *clip = 0) = 0;
 	//! Draws a 2d line.
 	/** In theory both start and end will be included in coloring.
 	BUG: Currently d3d ignores the last pixel

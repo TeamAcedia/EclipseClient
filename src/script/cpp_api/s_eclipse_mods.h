@@ -37,11 +37,12 @@ public:
 class Mod
 {
 public:
-	Mod(const std::string &name, const std::string &setting_id, const std::string &description, const std::string &icon, const std::string &default_value);
+	Mod(const std::string &name, const std::string &setting_id, const std::string &description, const std::string &icon, const std::string &default_value, const std::string &settings_only);
 	~Mod();
 	std::string m_name;
 	std::string m_description;
 	std::string m_icon;
+	bool m_settings_only;
 	bool m_default;
 	bool is_enabled();
 	void toggle();

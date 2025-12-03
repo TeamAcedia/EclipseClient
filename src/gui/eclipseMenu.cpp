@@ -4,6 +4,7 @@
 
 #include "eclipseMenu.h"
 #include "client/fontengine.h"
+#include <cstdlib>
 
 std::chrono::high_resolution_clock::time_point EclipseMenu::lastTime = std::chrono::high_resolution_clock::now();
 
@@ -55,6 +56,11 @@ EclipseMenu::EclipseMenu(
 
 EclipseMenu::~EclipseMenu()
 {
+    if (m_color_gradient_texture) {
+        m_color_gradient_texture->drop();
+        m_color_gradient_texture = nullptr;
+    }
+
     infostream << "[EclipseMenu] Successfully deleted" << std::endl;
 }
 
@@ -157,6 +163,190 @@ ColorTheme lerpTheme(const ColorTheme& a, const ColorTheme& b, float t) {
     return result;
 }
 
+void EclipseMenu::loadHSV(const std::string& key, float &H, float &S, float &V)
+{
+    std::string value = g_settings->get(key);
+
+    H = 0.0f; S = 1.0f; V = 1.0f; // default values
+
+    value.erase(std::remove_if(value.begin(), value.end(), ::isspace), value.end());
+
+    std::replace(value.begin(), value.end(), ',', ' ');
+
+    std::istringstream iss(value);
+    float h, s, v;
+    if (iss >> h >> s >> v) {
+        H = std::clamp(h, 0.0f, 1.0f);
+        S = std::clamp(s, 0.0f, 1.0f);
+        V = std::clamp(v, 0.0f, 1.0f);
+    }
+}
+
+void saveHSV(const std::string& key, float H, float S, float V)
+{
+    H = std::clamp(H, 0.0f, 1.0f);
+    S = std::clamp(S, 0.0f, 1.0f);
+    V = std::clamp(V, 0.0f, 1.0f);
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(6) << H << "," << S << "," << V;
+
+    g_settings->set(key, oss.str());
+}
+
+void RGBtoHSV(int r, int g, int b, float &h, float &s, float &v)
+{
+    float rf = r / 255.0f;
+    float gf = g / 255.0f;
+    float bf = b / 255.0f;
+
+    float maxc = std::max(rf, std::max(gf, bf));
+    float minc = std::min(rf, std::min(gf, bf));
+    float range = maxc - minc;
+
+    // Value
+    v = maxc;
+
+    // Saturation
+    if (maxc < 0.00001f) {
+        s = 0.0f;
+        h = 0.0f;
+        return;
+    }
+    s = (range / maxc);
+
+    // Hue
+    if (range < 0.00001f) {
+        h = 0.0f;
+    } else if (maxc == rf) {
+        h = fmodf((gf - bf) / range, 6.0f);
+    } else if (maxc == gf) {
+        h = ((bf - rf) / range) + 2.0f;
+    } else {
+        h = ((rf - gf) / range) + 4.0f;
+    }
+
+    h /= 6.0f;
+    if (h < 0.0f) h += 1.0f;
+}
+
+void HSVtoRGB(float h, float s, float v, int &r, int &g, int &b)
+{
+    float c = v * s;        // chroma
+    float x = c * (1 - fabsf(fmodf(h * 6.0f, 2.0f) - 1));
+    float m = v - c;
+
+    float rf, gf, bf;
+    float h6 = h * 6.0f;
+
+    if (h6 < 1)      { rf = c; gf = x; bf = 0; }
+    else if (h6 < 2) { rf = x; gf = c; bf = 0; }
+    else if (h6 < 3) { rf = 0; gf = c; bf = x; }
+    else if (h6 < 4) { rf = 0; gf = x; bf = c; }
+    else if (h6 < 5) { rf = x; gf = 0; bf = c; }
+    else             { rf = c; gf = 0; bf = x; }
+
+    r = (int)((rf + m) * 255.0f + 0.5f);
+    g = (int)((gf + m) * 255.0f + 0.5f);
+    b = (int)((bf + m) * 255.0f + 0.5f);
+}
+
+// Convert HSV to SColor
+video::SColor EclipseMenu::HSVtoSColor(float h, float s, float v)
+{
+    h = core::clamp(h, 0.0f, 1.0f);
+    s = core::clamp(s, 0.0f, 1.0f);
+    v = core::clamp(v, 0.0f, 1.0f);
+
+    int r, g, b;
+    HSVtoRGB(h, s, v, r, g, b);
+    return video::SColor(255, r, g, b);
+}
+
+
+// Generate color gradient texture for a color picker
+video::ITexture* EclipseMenu::generateColorGradientTexture(video::IVideoDriver* driver, float hue, const core::dimension2d<u32>& size)
+{
+    if (!driver) return nullptr;
+    if (size.Width == 0 || size.Height == 0) return nullptr;
+
+    video::IImage* image = driver->createImage(video::ECF_A8R8G8B8, size);
+
+    for (u32 y = 0; y < size.Height; ++y)
+    {
+        float value = 1.0f - (float)y / (float)(size.Height - 1); // left = 0, right = 1
+        for (u32 x = 0; x < size.Width; ++x)
+        {
+            float saturation = (float)x / (float)(size.Width - 1); // top = 1, bottom = 0
+            image->setPixel(x, y, HSVtoSColor(hue, saturation, value));
+        }
+    }
+
+    video::ITexture* texture = driver->addTexture("colorGradient", image);
+    image->drop(); // driver now owns it
+
+    return texture;
+}
+
+// Generate color gradient texture for a color picker
+video::ITexture* EclipseMenu::generateHueGradientTexture(video::IVideoDriver* driver, const core::dimension2d<u32>& size)
+{
+    if (!driver) return nullptr;
+    if (size.Width == 0 || size.Height == 0) return nullptr;
+
+    video::IImage* image = driver->createImage(video::ECF_A8R8G8B8, size);
+
+    for (u32 y = 0; y < size.Height; ++y)
+    {
+        for (u32 x = 0; x < size.Width; ++x)
+        {
+            float hue = 1.0f - (float)x / (float)(size.Width - 1); // left = 0, right = 1
+            image->setPixel(x, y, HSVtoSColor(hue, 1, 1));
+        }
+    }
+
+    video::ITexture* texture = driver->addTexture("hueGradient", image);
+    image->drop(); // driver now owns it
+
+    return texture;
+}
+
+void getColorAtPos(float H, const core::dimension2d<u32>& size, u32 x, u32 y, float *S, float *V)
+{
+    x = std::clamp(x, 0u, size.Width - 1);
+    y = std::clamp(y, 0u, size.Height - 1);
+
+    *S = static_cast<float>(x) / static_cast<float>(size.Width - 1);
+    *V = 1.0f - static_cast<float>(y) / static_cast<float>(size.Height - 1);
+}
+
+core::position2d<u32> getPosAtColor(const core::dimension2d<u32>& size, float S, float V)
+{
+    S = std::clamp(S, 0.0f, 1.0f);
+    V = std::clamp(V, 0.0f, 1.0f);
+
+    u32 x = static_cast<u32>(S * (size.Width - 1) + 0.5f);
+    u32 y = static_cast<u32>((1.0f - V) * (size.Height - 1) + 0.5f);
+
+    return core::position2d<u32>(x, y);
+}
+
+void getHueAtPos(const core::dimension2d<u32>& size, u32 x, float *H)
+{
+    x = std::clamp(x, 0u, size.Width - 1);
+
+    *H = 1.0f - static_cast<float>(x) / static_cast<float>(size.Width - 1);
+}
+
+core::position2d<u32> getPosAtHue(const core::dimension2d<u32>& size, float H)
+{
+    H = std::clamp(H, 0.0f, 1.0f);
+
+    u32 x = static_cast<u32>((1.0f - H) * (size.Width - 1) + 0.5f);
+
+    return core::position2d<u32>(x, 0);
+}
+
 void EclipseMenu::updateTheming()
 {
     if (g_settings->get("eclipse_appearance.theme") != last_theme_name) {
@@ -245,7 +435,7 @@ bool EclipseMenu::OnEvent(const SEvent& event)
     }
 
     // Check edit boxes first
-    if (!m_sliding_slider && !m_selecting_dropdown) {
+    if (!m_sliding_slider && !m_selecting_dropdown && !m_picking_color) {
         for (auto& pair : m_settings_textboxes_map) {
             EclipseEditBox* edit_box = pair.second.textbox;
             std::string parent_mod_name = pair.second.parent_mod_name;
@@ -291,17 +481,117 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                     }
                 }
             }
+            if (m_picking_color) {
+                m_picking_color = false;
+                m_current_mouse_pos = m_color_picker_mouse_pos;
+                return true;
+            }
             close();
             return true; 
         }
     }
     
+    if (m_picking_color) {
+        // Handle color picker events
+        if (event.EventType == EET_MOUSE_INPUT_EVENT) {
+            if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
+                core::position2d<s32> mousePos(event.MouseInput.X, event.MouseInput.Y);
+                if (!m_color_selector_menu_box.isPointInside(mousePos)) {
+                    // Clicked outside color picker, close it
+                    m_picking_color = false;
+                    m_current_mouse_pos = mousePos;
+                    return true;
+                }
+                if (m_color_picker_exit_box.isPointInside(mousePos)) {
+                    m_picking_color = false;
+                    m_current_mouse_pos = mousePos;
+                    return true;
+                }
+                if (m_color_selector_box.isPointInside(mousePos)) {
+                    // Calculate selected color
+                    u32 w = std::max(1, m_color_selector_box.getWidth());
+                    u32 h = std::max(1, m_color_selector_box.getHeight());
+                    s32 localX = mousePos.X - m_color_selector_box.UpperLeftCorner.X;
+                    s32 localY = mousePos.Y - m_color_selector_box.UpperLeftCorner.Y;
+                    // Load current color
+                    float H, S, V;
+                    loadHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    getColorAtPos(H, core::dimension2d<u32>(w, h), localX, localY, &S, &V);
+                    // Set the color in settings
+                    if (m_picking_color_setting) {
+                        saveHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    }
+                    m_color_selector_dragging = true;
+                    return true;
+                }
+                if (m_hue_slider_box.isPointInside(mousePos)) {
+                    // Calculate selected hue
+                    u32 w = std::max(1, m_hue_slider_box.getWidth());
+                    s32 localX = mousePos.X - m_hue_slider_box.UpperLeftCorner.X;
+                    // Load current color
+                    float H, S, V;
+                    loadHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    getHueAtPos(core::dimension2d<u32>(w, 1), localX, &H);
+                    // Set the color in settings
+                    if (m_picking_color_setting) {
+                        saveHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    }
+                    m_hue_selector_dragging = true;
+                    return true;
+                }
+            } else if (event.MouseInput.Event == EMIE_MOUSE_MOVED) {
+                m_color_picker_mouse_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+                if (m_color_selector_dragging) {
+                    // Calculate selected color
+                    u32 w = std::max(1, m_color_selector_box.getWidth());
+                    u32 h = std::max(1, m_color_selector_box.getHeight());
+                    s32 localX = event.MouseInput.X - m_color_selector_box.UpperLeftCorner.X;
+                    s32 localY = event.MouseInput.Y - m_color_selector_box.UpperLeftCorner.Y;
+                    // Clamp localX/Y
+                    localX = std::clamp(localX, 0, static_cast<s32>(w - 1));
+                    localY = std::clamp(localY, 0, static_cast<s32>(h - 1));
+                    // Load current color
+                    float H, S, V;
+                    loadHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    getColorAtPos(H, core::dimension2d<u32>(w, h), localX, localY, &S, &V);
+                    // Set the color in settings
+                    if (m_picking_color_setting) {
+                        saveHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    }
+                    return true;
+                }
+                if (m_hue_selector_dragging) {
+                    // Calculate selected hue
+                    u32 w = std::max(1, m_hue_slider_box.getWidth());
+                    s32 localX = event.MouseInput.X - m_hue_slider_box.UpperLeftCorner.X;
+                    // Clamp localX
+                    localX = std::clamp(localX, 0, static_cast<s32>(w - 1));
+                    // Load current color
+                    float H, S, V;
+                    loadHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    getHueAtPos(core::dimension2d<u32>(w, 1), localX, &H);
+                    // Set the color in settings
+                    if (m_picking_color_setting) {
+                        saveHSV(m_picking_color_setting->m_setting_id, H, S, V);
+                    }
+                    return true;
+                }
+            } else if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) {
+                m_color_selector_dragging = false;
+                m_hue_selector_dragging = false;
+                return true;
+            }
+        }
+        return false;
+    }
+
     // In OnEvent
     if (event.EventType == EET_MOUSE_INPUT_EVENT) 
     {
         if (event.MouseInput.Event == EMIE_MOUSE_MOVED) 
         {
             m_current_mouse_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+            m_color_picker_mouse_pos = m_current_mouse_pos;
             for (size_t i = 0; i < m_mods_toggle_boxes.size(); ++i) 
             {
                 if (!m_mods_toggle_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
@@ -521,6 +811,27 @@ bool EclipseMenu::OnEvent(const SEvent& event)
                                                 m_selecting_dropdown = true;
                                                 m_selecting_dropdown_index = i;
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (size_t i = 0; i < m_settings_color_boxes.size(); ++i) 
+                {
+                    if (m_settings_color_boxes[i].isPointInside(core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y))) 
+                    {
+                        std::string current_module_name = g_settings->get("eclipse.current_module");
+                        for (auto cat : categories) {
+                            for (auto mod : cat->mods) {
+                                if (mod->m_name == current_module_name) {
+                                    for (auto setting : mod->m_mod_settings) {
+                                        if (setting->m_name == m_settings_color_names[i]) {
+                                            m_picking_color = true;
+                                            m_picking_color_setting = setting;
+                                            return true;
                                         }
                                     }
                                 }
@@ -896,21 +1207,21 @@ void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s3
     float left_bound = 0.0f;
     float right_bound = std::min(0.0f, clip_w - content_w);
 
-    if (!m_dragging_category)
+    if (!m_dragging_mods)
     {
-        float overscroll_left = std::max(0.0f, m_category_scroll - left_bound);
-        float overscroll_right = std::min(0.0f, m_category_scroll - right_bound);
+        float overscroll_top = std::max(0.0f, m_category_scroll - left_bound);
+        float overscroll_bottom = std::min(0.0f, m_category_scroll - right_bound);
 
-        float spring_force = -overscroll_left - overscroll_right;
+        float overscroll = overscroll_top + overscroll_bottom;
 
-        float spring_strength = 0.02f;
-        m_category_scroll_velocity += spring_force * spring_strength;
+        const float k = 100.0f;
+        const float d = 20.0f;
+        const float mass = 1.0f;
 
-        m_category_scroll_velocity *= 0.92f;
-        if (std::abs(m_category_scroll_velocity) < 0.1f)
-            m_category_scroll_velocity = 0.0f;
+        float accel = (-k * overscroll - d * m_category_scroll_velocity) / mass;
 
-        m_category_scroll += m_category_scroll_velocity * dtime * 10.0f;
+        m_category_scroll_velocity += accel * dtime;
+        m_category_scroll += m_category_scroll_velocity * dtime;
     }
 
     s32 draw_x = ((clip.getWidth() / 2) - (total_width / 2)) + m_category_scroll;
@@ -988,17 +1299,18 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
         float overscroll_top = std::max(0.0f, m_mods_scroll - top_bound);
         float overscroll_bottom = std::min(0.0f, m_mods_scroll - bottom_bound);
 
-        float spring_force = -overscroll_top - overscroll_bottom;
+        float overscroll = overscroll_top + overscroll_bottom;
 
-        float spring_strength = 0.05f;
-        m_mods_scroll_velocity += spring_force * spring_strength;
+        const float k = 100.0f;
+        const float d = 20.0f;
+        const float mass = 1.0f;
 
-        m_mods_scroll_velocity *= 0.92f;
-        if (std::abs(m_mods_scroll_velocity) < 0.1f)
-            m_mods_scroll_velocity = 0.0f;
+        float accel = (-k * overscroll - d * m_mods_scroll_velocity) / mass;
 
-        m_mods_scroll += m_mods_scroll_velocity * dtime * 10.0f;
+        m_mods_scroll_velocity += accel * dtime;
+        m_mods_scroll += m_mods_scroll_velocity * dtime;
     }
+
 
     s32 draw_x = clip.UpperLeftCorner.X + mod_padding;
     s32 draw_y = clip.UpperLeftCorner.Y + mod_padding + m_mods_scroll;
@@ -1022,31 +1334,48 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             draw_y + (mod_height * 0.25f)
         );
 
-        // Icon area (middle)
         core::rect<s32> mod_icon_rect(
             draw_x,
             draw_y + (mod_height * 0.25f),
             draw_x + mod_width,
             draw_y + (mod_height * 0.75f)
         );
+        if (mod->m_settings_only) {
+            // Icon area (middle)
+            mod_icon_rect = core::rect<s32>(
+                draw_x,
+                draw_y + (mod_height * 0.25f),
+                draw_x + mod_width,
+                draw_y + (mod_height * 0.95)
+            );
+        }
 
-        // Toggle rect (bottom)
-        
         core::rect<s32> toggle_rect(
             draw_x + (mod_width * 0.35f),
             draw_y + (mod_height * 0.8f),
             draw_x + (mod_width * 0.65f),
             draw_y + (mod_height * 0.95f)
         );
-        m_mods_toggle_boxes.push_back(toggle_rect);
-        setAnimationTarget(mod->m_name + "_toggle_hover", toggle_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
-        f32 adjustment = static_cast<f32>((0.02f * easeInOutCubic(getAnimation(mod->m_name + "_toggle_hover"))) - (0.01f * easeInOutCubic(getAnimation(mod->m_name + "_toggle_pressed"))));
-        toggle_rect = core::rect<s32>(
-            draw_x + (mod_width * (0.35f - adjustment)),
-            draw_y + (mod_height * (0.8f - adjustment)),
-            draw_x + (mod_width * (0.65f + adjustment)),
-            draw_y + (mod_height * (0.95f + adjustment))
-        );
+        if (!mod->m_settings_only) {
+            // Toggle rect (bottom)
+            m_mods_toggle_boxes.push_back(toggle_rect);
+            setAnimationTarget(mod->m_name + "_toggle_hover", toggle_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+            f32 adjustment = static_cast<f32>((0.02f * easeInOutCubic(getAnimation(mod->m_name + "_toggle_hover"))) - (0.01f * easeInOutCubic(getAnimation(mod->m_name + "_toggle_pressed"))));
+            toggle_rect = core::rect<s32>(
+                draw_x + (mod_width * (0.35f - adjustment)),
+                draw_y + (mod_height * (0.8f - adjustment)),
+                draw_x + (mod_width * (0.65f + adjustment)),
+                draw_y + (mod_height * (0.95f + adjustment))
+            );
+        } else {
+            toggle_rect = core::rect<s32>(
+                draw_x,
+                draw_y,
+                draw_x,
+                draw_y
+            );
+            m_mods_toggle_boxes.push_back(toggle_rect);
+        }
 
         m_mods_boxes.push_back(mod_rect);
         m_mods_names.push_back(mod->m_name);
@@ -1069,71 +1398,74 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             true, true, &clip
         );
 
-        // Draw toggle switch
         
-        setAnimationTarget(mod->m_name + "_enabled", mod->is_enabled() ? 1.0 : 0.0);
-        video::SColor toggle_knob = lerpColor(theme.text_muted, theme.enabled, easeInOutCubic(getAnimation(mod->m_name + "_enabled")));
-        
-        // Draw toggle background
-        driver->draw2DRoundedRectangle(
-            toggle_rect,
-            theme.text,
-            toggle_rect.getHeight() / 6,
-            &clip
-        );
+        if (!mod->m_settings_only) {
+            // Draw toggle switch
+            
+            setAnimationTarget(mod->m_name + "_enabled", mod->is_enabled() ? 1.0 : 0.0);
+            video::SColor toggle_knob = lerpColor(theme.text_muted, theme.enabled, easeInOutCubic(getAnimation(mod->m_name + "_enabled")));
 
-        // create knob rect
-        s32 knob_diameter = toggle_rect.getHeight() - 4;
-        // lerp based on animation target s32 knob_x = mod->is_enabled() ? toggle_rect.LowerRightCorner.X - knob_diameter - 2 : toggle_rect.UpperLeftCorner.X + 2;
-        s32 knob_x = static_cast<s32>(
-            toggle_rect.UpperLeftCorner.X + 2 +
-            (toggle_rect.getWidth() - knob_diameter - 4) * easeInOutCubic(getAnimation(mod->m_name + "_enabled"))
-        );
+            // Draw toggle background
+            driver->draw2DRoundedRectangle(
+                toggle_rect,
+                theme.text,
+                toggle_rect.getHeight() / 6,
+                &clip
+            );
 
-        core::rect<s32> knob_rect(
-            knob_x,
-            toggle_rect.UpperLeftCorner.Y + 2,
-            knob_x + knob_diameter,
-            toggle_rect.LowerRightCorner.Y - 2
-        );
-        driver->draw2DRoundedRectangle(
-            knob_rect,
-            toggle_knob,
-            knob_diameter / 6,
-            &clip
-        );
+            // create knob rect
+            s32 knob_diameter = toggle_rect.getHeight() - 4;
+            // lerp based on animation target s32 knob_x = mod->is_enabled() ? toggle_rect.LowerRightCorner.X - knob_diameter - 2 : toggle_rect.UpperLeftCorner.X + 2;
+            s32 knob_x = static_cast<s32>(
+                toggle_rect.UpperLeftCorner.X + 2 +
+                (toggle_rect.getWidth() - knob_diameter - 4) * easeInOutCubic(getAnimation(mod->m_name + "_enabled"))
+            );
 
-        // Draw checkmark
-        f32 checkmark_progress = easeInOutCubic(getAnimation(mod->m_name + "_enabled"));
+            core::rect<s32> knob_rect(
+                knob_x,
+                toggle_rect.UpperLeftCorner.Y + 2,
+                knob_x + knob_diameter,
+                toggle_rect.LowerRightCorner.Y - 2
+            );
+            driver->draw2DRoundedRectangle(
+                knob_rect,
+                toggle_knob,
+                knob_diameter / 6,
+                &clip
+            );
 
-        f32 checkmark_small_progress = std::clamp(checkmark_progress / 0.3f, 0.0f, 1.0f);
+            // Draw checkmark
+            f32 checkmark_progress = easeInOutCubic(getAnimation(mod->m_name + "_enabled"));
 
-        f32 checkmark_large_progress = std::clamp((checkmark_progress - 0.4f) / 0.6f, 0.0f, 1.0f);
+            f32 checkmark_small_progress = std::clamp(checkmark_progress / 0.3f, 0.0f, 1.0f);
 
-        f32 checkmark_width = knob_diameter / 10;
+            f32 checkmark_large_progress = std::clamp((checkmark_progress - 0.4f) / 0.6f, 0.0f, 1.0f);
 
-        s32 center_x = (knob_rect.UpperLeftCorner.X + knob_rect.LowerRightCorner.X) / 2;
-        s32 center_y = (knob_rect.UpperLeftCorner.Y + knob_rect.LowerRightCorner.Y) / 2;
-        s32 checkmark_size = knob_diameter / 1.25;
-        s32 offset = checkmark_size / 12;
+            f32 checkmark_width = knob_diameter / 10;
 
-        // Small line (bottom-left stroke)
-        if (checkmark_small_progress > 0.0f) {
-            s32 x1 = (center_x - (checkmark_size / 4)) - offset;
-            s32 y1 = center_y;
-            s32 x2 = x1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
-            s32 y2 = y1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
-            draw2DThickLine(driver, {x1, y1}, {x2, y2}, theme.text, checkmark_width, &clip);
-        }
+            s32 center_x = (knob_rect.UpperLeftCorner.X + knob_rect.LowerRightCorner.X) / 2;
+            s32 center_y = (knob_rect.UpperLeftCorner.Y + knob_rect.LowerRightCorner.Y) / 2;
+            s32 checkmark_size = knob_diameter / 1.25;
+            s32 offset = checkmark_size / 12;
 
-        // Large line (upper-right stroke)
-        if (checkmark_large_progress > 0.0f) {
-            s32 corner_x = (center_x - 1) - offset;
-            s32 corner_y = center_y + (checkmark_size / 4) - 1;
+            // Small line (bottom-left stroke)
+            if (checkmark_small_progress > 0.0f) {
+                s32 x1 = (center_x - (checkmark_size / 4)) - offset;
+                s32 y1 = center_y;
+                s32 x2 = x1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
+                s32 y2 = y1 + static_cast<s32>((checkmark_size / 4) * checkmark_small_progress);
+                draw2DThickLine(driver, {x1, y1}, {x2, y2}, theme.text, checkmark_width, &clip);
+            }
 
-            s32 x2 = corner_x + static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
-            s32 y2 = corner_y - static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
-            draw2DThickLine(driver, {corner_x, corner_y}, {x2, y2}, theme.text, checkmark_width, &clip);
+            // Large line (upper-right stroke)
+            if (checkmark_large_progress > 0.0f) {
+                s32 corner_x = (center_x - 1) - offset;
+                s32 corner_y = center_y + (checkmark_size / 4) - 1;
+
+                s32 x2 = corner_x + static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
+                s32 y2 = corner_y - static_cast<s32>((checkmark_size / 2) * checkmark_large_progress);
+                draw2DThickLine(driver, {corner_x, corner_y}, {x2, y2}, theme.text, checkmark_width, &clip);
+            }
         }
 
         // Draw mod icon if available
@@ -1202,7 +1534,7 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
 s32 get_setting_render_height(ModSetting& setting)
 {
 
-    // valid types are: "bool", "slider_int", "slider_float", "text", "dropdown"
+    // valid types are: "bool", "slider_int", "slider_float", "text", "dropdown", "color_picker"
 
     const s32 base_height = 50;
     if (setting.m_type == "bool")
@@ -1216,6 +1548,9 @@ s32 get_setting_render_height(ModSetting& setting)
 
     else if (setting.m_type == "dropdown")
         return base_height * 2;
+
+    else if (setting.m_type == "color_picker")
+        return base_height;
 
     return base_height;
 }
@@ -1354,6 +1689,8 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
     m_settings_slider_knob_boxes.clear();
     m_settings_dropdown_boxes.clear();
     m_settings_dropdown_names.clear();
+    m_settings_color_boxes.clear();
+    m_settings_color_names.clear();
 
     std::string current_category_name = g_settings->get("eclipse.current_category");
     ModCategory* current_category = nullptr;
@@ -1459,16 +1796,18 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
         float overscroll_top = std::max(0.0f, m_settings_scroll - top_bound);
         float overscroll_bottom = std::min(0.0f, m_settings_scroll - bottom_bound);
 
-        float spring_force = -overscroll_top - overscroll_bottom;
+        float overscroll = overscroll_top + overscroll_bottom;
 
-        float spring_strength = 0.05f;
-        m_settings_scroll_velocity += spring_force * spring_strength;
+        const float k = 100.0f;
+        const float d = 20.0f;
+        const float mass = 1.0f;
 
-        m_settings_scroll_velocity *= 0.92f;
-        if (std::abs(m_settings_scroll_velocity) < 0.1f)
-            m_settings_scroll_velocity = 0.0f;
-        m_settings_scroll += m_settings_scroll_velocity * dtime * 10.0f;
+        float accel = (-k * overscroll - d * m_settings_scroll_velocity) / mass;
+
+        m_settings_scroll_velocity += accel * dtime;
+        m_settings_scroll += m_settings_scroll_velocity * dtime;
     }
+
 
 
     if (!current_module) {
@@ -1940,10 +2279,321 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
                     applyScalingFactorS32(4) * (1 - anim_progress),
                     &settings_area
                 );
-            }
+            } else if (setting->m_type == "color_picker") {
+                // Draw setting text
+                core::rect<s32> text_rect(
+                    setting_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+                    setting_rect.UpperLeftCorner.Y,
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(60),
+                    setting_rect.LowerRightCorner.Y
+                );
+                std::wstring wsetting_name = utf8_to_wide(setting->m_name);
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(20),
+                    wsetting_name,
+                    text_rect,
+                    theme.text,
+                    &settings_area
+                );
 
+                float H, S, V;
+                loadHSV(setting->m_setting_id, H, S, V);
+                int R, G, B;
+                HSVtoRGB(H, S, V, R, G, B);
+                video::SColor current_color(255, R, G, B);
+
+                // Draw color preview box
+                core::rect<s32> color_box_rect(
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(50),
+                    setting_rect.UpperLeftCorner.Y + applyScalingFactorS32(10),
+                    setting_rect.LowerRightCorner.X - applyScalingFactorS32(20),
+                    setting_rect.LowerRightCorner.Y - applyScalingFactorS32(10)
+                );
+
+                driver->draw2DRectangle(
+                    current_color,
+                    color_box_rect,
+                    &settings_area
+                );
+
+                setAnimationTarget(setting->m_name + "_color_box_hover", color_box_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+                video::SColor outline_color = lerpColor(theme.text_muted, theme.text, static_cast<f32>(easeInOutCubic(getAnimation(setting->m_name + "_color_box_hover"))));
+                driver->draw2DRectangleOutline(
+                    color_box_rect,
+                    outline_color,
+                    applyScalingFactorS32(2),
+                    &settings_area
+                );
+
+                m_settings_color_boxes.push_back(color_box_rect);
+                m_settings_color_names.push_back(setting->m_name);
+            }
             current_y += setting_height + setting_spacing;
         }
+    }
+}
+
+void EclipseMenu::draw_color_picker(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories) {
+    setAnimationTarget("color_picker_open", m_picking_color ? 1.0 : 0.0);
+
+    if (m_picking_color_setting == nullptr) {
+       return;
+    }
+
+    double anim_progress = easeInOutCubic(getAnimation("color_picker_open"));
+    if (getAnimation("color_picker_open") > 0.0) {
+        ColorTheme theme = current_theme.withAlpha(anim_progress);
+        // Darken background
+        u32 alpha = (u32)std::round(127.0 * anim_progress);
+        video::SColor overlay_color(alpha, 0, 0, 0);
+
+        driver->draw2DRectangle(
+            overlay_color,
+            core::rect<s32>(0, 0, driver->getScreenSize().Width, driver->getScreenSize().Height)
+        );
+
+        // Draw color picker background
+
+        const core::dimension2du screensize = driver->getScreenSize();
+        const core::dimension2di menusize(applyScalingFactorS32(300), applyScalingFactorS32(static_cast<s32>(325 * anim_progress)));
+        const core::rect<s32> menurect(
+            (screensize.Width / 2) - (menusize.Width / 2),      //x1
+            (screensize.Height / 2) - (menusize.Height / 2),    //y1
+            (screensize.Width / 2) + (menusize.Width / 2),      //x2
+            (screensize.Height / 2) + (menusize.Height / 2)     //y2
+        );
+        m_color_selector_menu_box = menurect;
+        const s32 corner_radius = applyScalingFactorS32(15);
+        drawRoundedRectShadow(
+            driver,
+            menurect,
+            theme.background,
+            corner_radius,
+            corner_radius,
+            corner_radius,
+            corner_radius,
+            4, 6, 0.5f,
+            nullptr
+        );
+
+        // Draw text and close button
+        const s32 top_bar_height = applyScalingFactorS32(40);
+        const core::rect<s32> topbar_rect(
+            menurect.UpperLeftCorner.X,
+            menurect.UpperLeftCorner.Y,
+            menurect.LowerRightCorner.X,
+            menurect.UpperLeftCorner.Y + top_bar_height
+        );
+        // Draw title text
+        std::wstring wtitle = utf8_to_wide("Color Picker");
+        core::rect<s32> title_rect(
+            topbar_rect.UpperLeftCorner.X + applyScalingFactorS32(10),
+            topbar_rect.UpperLeftCorner.Y,
+            topbar_rect.LowerRightCorner.X - top_bar_height - applyScalingFactorS32(20),
+            topbar_rect.LowerRightCorner.Y
+        );
+        draw_text_shrink_to_fit(
+            driver,
+            applyScalingFactorS32(24),
+            wtitle,
+            title_rect,
+            theme.text,
+            nullptr
+        );
+        // Draw close button
+        core::rect<s32> close_button_rect(
+            topbar_rect.LowerRightCorner.X - top_bar_height - applyScalingFactorS32(10),
+            topbar_rect.UpperLeftCorner.Y,
+            topbar_rect.LowerRightCorner.X - applyScalingFactorS32(10),
+            topbar_rect.LowerRightCorner.Y
+        );
+        m_color_picker_exit_box = close_button_rect;
+        setAnimationTarget("color_picker_close_hover", close_button_rect.isPointInside(m_color_picker_mouse_pos) ? 1.0 : 0.0);
+        video::SColor close_color = lerpColor(theme.text_muted, theme.text, static_cast<f32>(easeInOutCubic(getAnimation("color_picker_close_hover"))));
+        // Draw X
+        s32 padding = applyScalingFactorS32(10);
+        core::vector2d<s32> line1_start(
+            close_button_rect.UpperLeftCorner.X + padding,
+            close_button_rect.UpperLeftCorner.Y + padding
+        );
+        core::vector2d<s32> line1_end(
+            close_button_rect.LowerRightCorner.X - padding,
+            close_button_rect.LowerRightCorner.Y - padding
+        );
+        core::vector2d<s32> line2_start(
+            close_button_rect.UpperLeftCorner.X + padding,
+            close_button_rect.LowerRightCorner.Y - padding
+        );
+        core::vector2d<s32> line2_end(
+            close_button_rect.LowerRightCorner.X - padding,
+            close_button_rect.UpperLeftCorner.Y + padding
+        );
+        draw2DThickLine(
+            driver,
+            line1_start,
+            line1_end,
+            close_color,
+            applyScalingFactorDouble(2.0),
+            nullptr
+        );
+        draw2DThickLine(
+            driver,
+            line2_start,
+            line2_end,
+            close_color,
+            applyScalingFactorDouble(2.0),
+            nullptr
+        );
+
+        // Draw color selection area
+        core::rect<s32> color_area(
+            menurect.UpperLeftCorner.X + applyScalingFactorS32(30),
+            menurect.UpperLeftCorner.Y + top_bar_height + applyScalingFactorS32(20),
+            menurect.LowerRightCorner.X - applyScalingFactorS32(30),
+            menurect.UpperLeftCorner.Y + menurect.getHeight() * 0.75f
+        );
+        m_color_selector_box = color_area;
+
+        // compute safe dimensions
+        u32 w = std::max(1, color_area.getWidth());
+        u32 h = std::max(1, color_area.getHeight());
+
+        core::dimension2du gradient_dim(w, h);
+
+        // Load current color
+        float H, S, V;
+        loadHSV(m_picking_color_setting->m_setting_id, H, S, V);
+        int r, g, b;
+        HSVtoRGB(H, S, V, r, g, b);
+        video::SColor current_color(255, r, g, b);
+
+        // Draw color gradient box
+        // Create gradient texture if not existing or size changed
+        if (m_color_gradient_texture == nullptr || m_color_gradient_texture->getSize().Width != gradient_dim.Width || m_color_gradient_texture->getSize().Height != gradient_dim.Height || m_last_gradient_hue != H) {
+            m_last_gradient_hue = H;
+            if (m_color_gradient_texture != nullptr) {
+                driver->removeTexture(m_color_gradient_texture);  // remove from driver
+                m_color_gradient_texture = nullptr;
+            }
+            m_color_gradient_texture = generateColorGradientTexture(driver, H, gradient_dim);
+        }
+        // Draw gradient texture
+        if (m_color_gradient_texture != nullptr) {
+            driver->draw2DImage(
+                m_color_gradient_texture,
+                color_area,
+                core::rect<s32>(0, 0, m_color_gradient_texture->getSize().Width, m_color_gradient_texture->getSize().Height),
+                nullptr,
+                nullptr,
+                false
+            );
+        }
+        driver->draw2DRectangleOutline(
+            color_area,
+            theme.text_muted,
+            applyScalingFactorS32(2),
+            nullptr
+        );
+
+        // Draw selected color indicator
+        core::position2d indicator_position = getPosAtColor(gradient_dim, S, V);
+        s32 indicator_size = applyScalingFactorS32(15);
+        core::rect<s32> indicator_rect(
+            color_area.UpperLeftCorner.X + indicator_position.X - (indicator_size / 2),
+            color_area.UpperLeftCorner.Y + indicator_position.Y - (indicator_size / 2),
+            color_area.UpperLeftCorner.X + indicator_position.X + (indicator_size / 2),
+            color_area.UpperLeftCorner.Y + indicator_position.Y + (indicator_size / 2)
+        );
+        driver->draw2DRectangle(
+            current_color,
+            indicator_rect,
+            &menurect
+        );
+        driver->draw2DRectangleOutline(
+            indicator_rect,
+            theme.text,
+            applyScalingFactorS32(2),
+            &menurect
+        );
+
+        // Draw "Hue" label
+        std::wstring whue_label = utf8_to_wide("Hue");
+        core::rect<s32> hue_label_rect(
+            menurect.UpperLeftCorner.X + applyScalingFactorS32(30),
+            menurect.UpperLeftCorner.Y + menurect.getHeight() * 0.78f,
+            menurect.LowerRightCorner.X - applyScalingFactorS32(30),
+            menurect.UpperLeftCorner.Y + menurect.getHeight() * 0.86f
+        );
+        draw_text_shrink_to_fit(
+            driver,
+            applyScalingFactorS32(20),
+            whue_label,
+            hue_label_rect,
+            theme.text,
+            nullptr
+        );
+
+        // Draw hue slider
+        core::rect<s32> hue_slider_rect(
+            menurect.UpperLeftCorner.X + applyScalingFactorS32(30),
+            menurect.UpperLeftCorner.Y + menurect.getHeight() * 0.87f,
+            menurect.LowerRightCorner.X - applyScalingFactorS32(30),
+            menurect.UpperLeftCorner.Y + menurect.getHeight() * 0.94f
+        );
+
+        core::dimension2du hue_gradient_dim(
+            std::max(1, hue_slider_rect.getWidth()),
+            std::max(1, hue_slider_rect.getHeight())
+        );
+        m_hue_slider_box = hue_slider_rect;
+
+        // Create hue gradient texture if not existing or size changed
+        if (m_hue_gradient_texture == nullptr || m_hue_gradient_texture->getSize().Width != hue_gradient_dim.Width || m_hue_gradient_texture->getSize().Height != hue_gradient_dim.Height) {
+            if (m_hue_gradient_texture != nullptr) {
+                driver->removeTexture(m_hue_gradient_texture);  // remove from driver
+                m_hue_gradient_texture = nullptr;
+            }
+            m_hue_gradient_texture = generateHueGradientTexture(driver, hue_gradient_dim);
+        }
+        // Draw hue gradient texture
+        if (m_hue_gradient_texture != nullptr) {
+            driver->draw2DImage(
+                m_hue_gradient_texture,
+                hue_slider_rect,
+                core::rect<s32>(0, 0, m_hue_gradient_texture->getSize().Width, m_hue_gradient_texture->getSize().Height),
+                nullptr,
+                nullptr,
+                false
+            );
+        }
+
+        driver->draw2DRectangleOutline(
+            hue_slider_rect,
+            theme.text_muted,
+            applyScalingFactorS32(2)
+        );
+
+        // Draw hue slider indicator
+        core::position2d<u32> pos = getPosAtHue(hue_gradient_dim, H);
+        s32 hue_indicator_width = applyScalingFactorS32(5);
+        core::rect<s32> hue_indicator_rect(
+            (hue_slider_rect.UpperLeftCorner.X + pos.X) - hue_indicator_width,
+            hue_slider_rect.UpperLeftCorner.Y,
+            (hue_slider_rect.UpperLeftCorner.X + pos.X) + hue_indicator_width,
+            hue_slider_rect.LowerRightCorner.Y
+        );
+        video::SColor hue_indicator_color = HSVtoSColor(H, 1.0f, 1.0f);
+        driver->draw2DRectangle(
+            hue_indicator_color,
+            hue_indicator_rect
+        );
+        driver->draw2DRectangleOutline(
+            hue_indicator_rect,
+            theme.text,
+            applyScalingFactorS32(3)
+        );
+
     }
 }
 
@@ -2071,5 +2721,6 @@ void EclipseMenu::draw()
         draw_mods_list(driver, m_mods_list_rect, font, current_category, theme, dtime);
         draw_module_settings(driver, module_settings_rect, module_settings_topbar_rect, font, categories, theme, dtime);
         draw_dropdown_options(driver, font, theme, categories);
+        draw_color_picker(driver, font, theme, categories);
     }
 } 
