@@ -64,38 +64,6 @@ void EclipseEditBox::pushUndo()
     }
 }
 
-std::wstring EclipseEditBox::utf8_to_wstring(const std::string& str)
-{
-    if (str.empty()) return {};
-
-    std::setlocale(LC_CTYPE, "");
-
-    std::mbstate_t state = {};
-    const char* src = str.data();
-    size_t len = std::mbsrtowcs(nullptr, &src, 0, &state);
-    if (len == static_cast<size_t>(-1)) throw std::runtime_error("Conversion failed");
-
-    std::wstring wstr(len, 0);
-    std::mbsrtowcs(&wstr[0], &src, len, &state);
-    return wstr;
-}
-
-std::string EclipseEditBox::wstring_to_utf8(const std::wstring& wstr)
-{
-    if (wstr.empty()) return {};
-
-    std::setlocale(LC_CTYPE, "");
-
-    std::mbstate_t state = {};
-    const wchar_t* src = wstr.data();
-    size_t len = std::wcsrtombs(nullptr, &src, 0, &state);
-    if (len == static_cast<size_t>(-1)) throw std::runtime_error("Conversion failed");
-
-    std::string str(len, 0);
-    std::wcsrtombs(&str[0], &src, len, &state);
-    return str;
-}
-
 void EclipseEditBox::rebuildLogicalIndex()
 {
     logicalLineStartIndex.clear();
@@ -805,7 +773,7 @@ bool EclipseEditBox::handleEvent(const SEvent& event)
             size_t a = std::min(selection_a, selection_b), b = std::max(selection_a, selection_b);
             if (a < b) {
                 if (Operator) {
-                    std::string utf8 = wstring_to_utf8(substring(a,b));
+                    std::string utf8 = wide_to_utf8(substring(a,b));
                     Operator->copyToClipboard(utf8.c_str());
                 }
             }
@@ -823,7 +791,7 @@ bool EclipseEditBox::handleEvent(const SEvent& event)
         }
         else if (ctrl && (k.Key == KEY_KEY_V)) { // Ctrl+V
 			const c8 *p = Operator->getTextFromClipboard();
-			std::wstring s = utf8_to_wstring(p ? p : "");
+			std::wstring s = utf8_to_wide(p ? p : "");
 			if (!s.empty()) { insertAtCaret(s); consumed = true; }
 			ensureCaretVisible(lastFont);
         }
