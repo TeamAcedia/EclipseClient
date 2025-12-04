@@ -40,10 +40,10 @@ public:
 
     bool handleEvent(const SEvent& event);
 
-    void setTextUtf8(const std::string& utf8) { buffer = utf8_to_wstring(utf8); rebuildLayoutNeeded = true; caret = 0; selection_a = selection_b = 0; }
+    void setTextUtf8(const std::string& utf8) { buffer = utf8_to_wide(utf8); rebuildLayoutNeeded = true; caret = 0; selection_a = selection_b = 0; }
 	
 	void loseFocus() { active = false; dragging = false; pendingClick = false; clickMovedTooFar = false; selection_a = selection_b = 0; }
-    std::string getTextUtf8() const { return wstring_to_utf8(buffer); }
+    std::string getTextUtf8() const { return wide_to_utf8(buffer); }
 
     u32 caretWidth = 2;
     u32 caretBlinkMs = 530;
