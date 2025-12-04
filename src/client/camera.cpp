@@ -385,8 +385,11 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	v3f rel_cam_target = v3f(0,0,1);
 	v3f rel_cam_up = v3f(0,1,0);
 
-	if (m_cache_view_bobbing_amount != 0.0f && m_view_bobbing_anim != 0.0f &&
-		m_camera_mode < CAMERA_MODE_THIRD) {
+	bool should_bob = true;
+	if (g_settings->getBool("eclipse_camera") && !g_settings->getBool("eclipse_camera.view_bobbing")){
+		should_bob = false;
+	}
+	if (m_cache_view_bobbing_amount != 0.0f && m_view_bobbing_anim != 0.0f && m_camera_mode < CAMERA_MODE_THIRD && should_bob){
 		f32 bobfrac = my_modf(m_view_bobbing_anim * 2);
 		f32 bobdir = (m_view_bobbing_anim < 0.5) ? 1.0 : -1.0;
 
@@ -537,10 +540,39 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 		quat_slerp.toEuler(wield_rotation);
 		wield_rotation *= core::RADTODEG;
 	} else {
-		f32 bobfrac = my_modf(m_view_bobbing_anim);
-		wield_position.X -= std::sin(bobfrac*M_PI*2.0) * 3.0;
-		wield_position.Y += std::sin(my_modf(bobfrac*2.0)*M_PI) * 3.0;
+		should_bob = true;
+		if (g_settings->getBool("eclipse_camera") && !g_settings->getBool("eclipse_camera.hand_bobbing")){
+			should_bob = false;
+		}
+		if (should_bob) {
+			f32 hand_bobbing_amount = g_settings->getFloat("eclipse_camera.hand_bobbing_amount");
+			f32 bobfrac = my_modf(m_view_bobbing_anim);
+			wield_position.X -= std::sin(bobfrac*M_PI*2.0) * (3.0 * hand_bobbing_amount);
+			wield_position.Y += std::sin(my_modf(bobfrac*2.0)*M_PI) * (3.0 * hand_bobbing_amount);
+		}
 	}
+
+	if (g_settings->getBool("eclipse_camera") && g_settings->getBool("eclipse_camera.left_hand")) {
+		wield_position.X = -wield_position.X;
+
+		core::quaternion quat(wield_rotation * core::DEGTORAD);
+
+		quat.X = -quat.X;
+		quat.W = -quat.W;
+
+		core::quaternion pitchFix(v3f(180, 0, 180) * core::DEGTORAD);
+		quat = pitchFix * quat;
+
+		quat.toEuler(wield_rotation);
+		wield_rotation *= core::RADTODEG;
+	}
+
+	if (g_settings->getBool("eclipse_camera")) {
+		f32 hand_size = g_settings->getFloat("eclipse_camera.hand_size");
+		v3f scale = m_wieldnode->m_render_scale * hand_size;
+		m_wieldnode->setScale(scale);
+	}
+
 	m_wieldnode->setPosition(wield_position);
 	m_wieldnode->setRotation(wield_rotation);
 

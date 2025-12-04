@@ -193,6 +193,8 @@ private:
 
 	scene::ISceneManager *m_wieldmgr = nullptr;
 	WieldMeshSceneNode *m_wieldnode = nullptr;
+	core::vector3df m_last_wieldnode_scale;
+	core::vector3df m_base_wieldnode_scale;
 
 	// draw control
 	MapDrawControl& m_draw_control;

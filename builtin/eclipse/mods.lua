@@ -158,6 +158,66 @@ core.mod_categories = {
                         setting_id = "eclipse_skybox.night_texture"
                     }
                 }
+            },
+            {
+                name = "Camera",
+                description = "Customize camera settings",
+                icon = "eclipse_camera.png",
+                setting_id = "eclipse_camera",
+                default = false,
+                settings = {
+                    {
+                        name = "View Bobbing",
+                        description = "Toggle view bobbing effect",
+                        type = "bool",
+                        default = true,
+                        setting_id = "eclipse_camera.view_bobbing"
+                    },
+                    {
+                        name = "View Bobbing Amount",
+                        description = "Adjust the intensity of view bobbing",
+                        type = "slider_float",
+                        default = 1.0,
+                        min = 0.0,
+                        max = 8.0,
+                        steps = 81,
+                        setting_id = "view_bobbing_amount"
+                    },
+                    {
+                        name = "Left Hand",
+                        description = "Toggle left hand view",
+                        type = "bool",
+                        default = false,
+                        setting_id = "eclipse_camera.left_hand"
+                    },
+                    {
+                        name = "Hand Size",
+                        description = "Adjust the size of the hand model",
+                        type = "slider_float",
+                        default = 1.0,
+                        min = 0.5,
+                        max = 2.0,
+                        steps = 16,
+                        setting_id = "eclipse_camera.hand_size"
+                    },
+                    {
+                        name = "Hand Bobbing",
+                        description = "Toggle hand bobbing effect",
+                        type = "bool",
+                        default = true,
+                        setting_id = "eclipse_camera.hand_bobbing"
+                    },
+                    {
+                        name = "Hand Bobbing Amount",
+                        description = "Adjust the intensity of hand bobbing",
+                        type = "slider_float",
+                        default = 1.0,
+                        min = 0.0,
+                        max = 8.0,
+                        steps = 81,
+                        setting_id = "eclipse_camera.hand_bobbing_amount"
+                    }
+                }
             }
         }
     }

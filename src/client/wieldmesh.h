@@ -137,6 +137,8 @@ public:
 
 	virtual const aabb3f &getBoundingBox() const { return m_bounding_box; }
 
+	v3f m_render_scale;
+
 private:
 	void setExtruded(video::ITexture *base, video::ITexture *overlay,
 			v3f wield_scale);

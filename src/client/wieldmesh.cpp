@@ -286,6 +286,7 @@ void WieldMeshSceneNode::setExtruded(const TileDef &d0, const TileLayer &l0,
 void WieldMeshSceneNode::setExtruded(video::ITexture *texture,
 		video::ITexture *overlay_texture, v3f wield_scale)
 {
+	m_render_scale = wield_scale;
 	if (!texture) {
 		changeToMesh(nullptr);
 		return;
@@ -482,7 +483,6 @@ void WieldMeshSceneNode::setItem(const ItemStack &item, Client *client, bool che
 					&m_wield_overlay_frames, overlay_frame_length_ms);
 			}
 		}
-
 		setExtruded(wield_texture, wield_overlay_texture, wield_scale);
 		// initialize the color
 		setColor(video::SColor(0xFFFFFFFF));
