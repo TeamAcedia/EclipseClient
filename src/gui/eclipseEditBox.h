@@ -61,7 +61,7 @@ private:
     size_t caret = 0;
     size_t selection_a = 0;
     size_t selection_b = 0;
-    ssize_t selAnchor = -1;
+    s32 selAnchor = -1;
 
     s32 scrollY = 0;
 
