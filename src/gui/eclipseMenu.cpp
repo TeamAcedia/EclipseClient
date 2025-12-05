@@ -23,9 +23,11 @@ EclipseMenu::EclipseMenu(
     IMenuManager *menumgr, 
     MainMenuScripting *script,
     bool is_main_menu,
-    ISimpleTextureSource *texture_src
+    ISimpleTextureSource *texture_src,
+    IrrlichtDevice *device
 )
-    : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)), 
+    : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)),
+    m_device(device),
     m_texture_src(texture_src),
     m_menumgr(menumgr),
     m_script(script),
@@ -42,9 +44,11 @@ EclipseMenu::EclipseMenu(
     IMenuManager* menumgr, 
     Client* client,
     bool is_main_menu,
-    ISimpleTextureSource *texture_src
+    ISimpleTextureSource *texture_src,
+    IrrlichtDevice *device
 )
-    : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)), 
+    : IGUIElement(gui::EGUIET_ELEMENT, env, parent, id, core::rect<s32>(0, 0, 0, 0)),
+    m_device(device),
     m_texture_src(texture_src),
     m_menumgr(menumgr),
     m_client(client),
@@ -2644,6 +2648,15 @@ void EclipseMenu::draw()
     setRelativePosition(core::rect<s32>(0, 0, screensize.Width, screensize.Height));
 
     gui::IGUIFont* font = g_fontengine->getFont(applyScalingFactorS32(24), FM_Standard);
+
+    if (!m_device->isWindowFocused()) {
+        m_dragging_category = false;
+        m_dragging_mods = false;
+        m_dragging_settings = false;
+        m_sliding_slider = false;
+        m_selecting_dropdown = false;
+        m_picking_color = false;
+    }
 
     if (!font)
         return;

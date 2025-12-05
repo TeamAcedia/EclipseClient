@@ -71,8 +71,8 @@ struct TextboxData {
 class EclipseMenu: public IGUIElement
 {
 public:
-    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu, ISimpleTextureSource *texture_src);
-    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu, ISimpleTextureSource *texture_src);
+    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, Client *client, bool is_main_menu, ISimpleTextureSource *texture_src, IrrlichtDevice *device);
+    EclipseMenu(gui::IGUIEnvironment* env, gui::IGUIElement* parent, s32 id, IMenuManager* menumgr, MainMenuScripting *script, bool is_main_menu, ISimpleTextureSource *texture_src, IrrlichtDevice *device);
 
 	static void loadHSV(const std::string &key, float &H, float &S, float &V);
 
@@ -92,6 +92,7 @@ public:
 
     bool m_initialized = false;
 private:
+    IrrlichtDevice *m_device = nullptr;
     ISimpleTextureSource *m_texture_src = nullptr;
 
     std::string themes_path;
