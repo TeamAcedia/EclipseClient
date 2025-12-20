@@ -103,6 +103,9 @@ private:
 	// sha256(string, raw)
 	static int l_sha256(lua_State *L);
 
+	// hash_against_official(string)
+	static int l_hash_against_official(lua_State *L);
+
 	// colorspec_to_colorstring(colorspec)
 	static int l_colorspec_to_colorstring(lua_State *L);
 

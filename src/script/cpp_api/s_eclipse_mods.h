@@ -10,6 +10,11 @@
 #include <vector>
 #include <string>
 
+// Helper functions
+
+bool CheckSettingRestricted(const std::string &setting_id);
+bool GetSettingRestrictedValue(const std::string &setting_id);
+
 // ModSetting class that stores one mod setting
 class ModSetting
 {

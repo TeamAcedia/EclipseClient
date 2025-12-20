@@ -29,6 +29,8 @@
 #include "player.h"
 #include "daynightratio.h"
 #include <cstdio>
+#include "l_util.h"
+#include "version.h"
 
 // only available in zstd 1.3.5+
 #ifndef ZSTD_CLEVEL_DEFAULT
@@ -590,6 +592,15 @@ int ModApiUtil::l_sha256(lua_State *L)
 	return 1;
 }
 
+int ModApiUtil::l_hash_against_official(lua_State *L)
+{
+	NO_MAP_LOCK_REQUIRED;
+	auto data = readParam<std::string_view>(L, 1);
+	std::string computed_hash = hash_against_official_build_hash(std::string(data));
+	lua_pushstring(L, computed_hash.c_str());
+	return 1;
+}
+
 // colorspec_to_colorstring(colorspec)
 int ModApiUtil::l_colorspec_to_colorstring(lua_State *L)
 {
@@ -763,6 +774,7 @@ void ModApiUtil::Initialize(lua_State *L, int top)
 	API_FCT(get_version);
 	API_FCT(sha1);
 	API_FCT(sha256);
+	API_FCT(hash_against_official);
 	API_FCT(colorspec_to_colorstring);
 	API_FCT(colorspec_to_bytes);
 	API_FCT(colorspec_to_table);
@@ -801,6 +813,7 @@ void ModApiUtil::InitializeClient(lua_State *L, int top)
 	API_FCT(get_version);
 	API_FCT(sha1);
 	API_FCT(sha256);
+	API_FCT(hash_against_official);
 	API_FCT(colorspec_to_colorstring);
 	API_FCT(colorspec_to_bytes);
 	API_FCT(colorspec_to_table);
@@ -850,6 +863,7 @@ void ModApiUtil::InitializeAsync(lua_State *L, int top)
 	API_FCT(get_version);
 	API_FCT(sha1);
 	API_FCT(sha256);
+	API_FCT(hash_against_official);
 	API_FCT(colorspec_to_colorstring);
 	API_FCT(colorspec_to_bytes);
 	API_FCT(colorspec_to_table);

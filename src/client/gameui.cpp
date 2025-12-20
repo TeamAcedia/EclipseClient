@@ -122,7 +122,7 @@ void GameUI::update(const RunStats &stats, Client *client, MapDrawControl *draw_
 	v3f player_position = player->getPosition();
 
 	s32 minimal_debug_height = 0;
-	if (g_settings->getBool("eclipse_better_debug")) {
+	if (GetSettingRestrictedValue("eclipse_better_debug")) {
 		const u16 fps = 1.0 / stats.dtime_jitter.avg;
 		m_drawtime_avg *= 0.95f;
 		m_drawtime_avg += 0.05f * (stats.drawtime / 1000);

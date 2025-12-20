@@ -9,9 +9,10 @@ local SESSION_TOKEN_SETTING_NAME = "session_token"
 local API_SERVER_ADDRESS = "http://teamacedia.baselinux.net:22222/"
 --local API_SERVER_ADDRESS = "http://127.0.0.1:22222/"
 
+local channel = nil
 local session_token = core.settings:get(SESSION_TOKEN_SETTING_NAME)
 
-networking = {}
+networking = {server_has_mod = false}
 
 networking.EclipseUsers = {}
 networking.Capes = {}
@@ -61,7 +62,8 @@ local function announce_join(username, server_address, server_port)
 			token = session_token,
 			joined_username = username,
 			server_address = server_address,
-			server_port = server_port
+			server_port = server_port,
+			client_build = core.get_version().eclipse_string
 		}),
 		extra_headers = {
 			"Content-Type: application/json"
@@ -322,8 +324,10 @@ eclipse.on_connect(function()
 	end)
 
 	local update_interval = 5
-	local timer = 5 -- Don't wait the first time
-
+	local timer = 4.5 -- Don't wait the first time
+	local initialized = false
+	core.settings:set("client_restrictions", "")
+	channel = core.mod_channel_join("ECLIPSE_COMMS_CHANNEL")
 	core.register_globalstep(function(dtime)
 		timer = timer + dtime
 		if timer < update_interval then return end
@@ -333,6 +337,10 @@ eclipse.on_connect(function()
 		local server_address = server_info.ip
 		local server_port = tostring(server_info.port)
 		fetch_Eclipse_users(server_address, server_port)
+		if not initialized then
+    		channel:send_all("TOSERVER_INIT")
+			initialized = true
+		end
 	end)
 end)
 
@@ -360,4 +368,14 @@ core.register_globalstep(function(dtime)
     end
 
     last_online_players = current_set
+end)
+
+core.register_on_modchannel_message(function(channel_name, sender, message)
+    if channel_name ~= "ECLIPSE_COMMS_CHANNEL" then return end
+    if message == "TOCLIENT_ACK" then
+		channel:send_all("TOSERVER_REQUEST_RESTRICTIONS")
+		networking.server_has_mod = true
+	elseif message:sub(1, 22) == "TOCLIENT_RESTRICTIONS:" then
+		core.settings:set("client_restrictions", message:sub(23))
+    end
 end)

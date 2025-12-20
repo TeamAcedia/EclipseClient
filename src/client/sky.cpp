@@ -13,6 +13,7 @@
 #include "profiler.h"
 #include "settings.h"
 #include "util/numeric.h"
+#include "script/cpp_api/s_eclipse_mods.h"
 
 #include <ICameraSceneNode.h>
 #include <ISceneManager.h>
@@ -299,7 +300,7 @@ void Sky::render()
 			return;
 
 		// Draw the six sided skybox,
-		if (g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox")) {
+		if (GetSettingRestrictedValue("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox")) {
 			std::string setting_id = "";
 			float hour = m_time_of_day * 24.0f;
 
@@ -357,7 +358,7 @@ void Sky::render()
 			}
 		}
 
-		if (m_sky_params.textures.size() == 6 && !g_settings->getBool("eclipse_skybox")) {
+		if (m_sky_params.textures.size() == 6 && !GetSettingRestrictedValue("eclipse_skybox")) {
 			for (u32 j = 5; j < 11; j++) {
 				video::SColor c(255, 255, 255, 255);
 				driver->setMaterial(m_materials[j]);
@@ -391,7 +392,7 @@ void Sky::render()
 		}
 
 		// Draw far cloudy fog thing blended with skycolor
-		if (m_visible && !(g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox"))) {
+		if (m_visible && !(GetSettingRestrictedValue("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox"))) {
 			driver->setMaterial(m_materials[1]);
 			for (u32 j = 0; j < 4; j++) {
 				vertices[0] = video::S3DVertex(-1, -0.02, -1, 0, 0, 1, m_bgcolor, t, t);
@@ -417,12 +418,12 @@ void Sky::render()
 		}
 
 		// Draw stars before sun and moon to be behind them
-		if (m_star_params.visible && !(g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox")))
+		if (m_star_params.visible && !(GetSettingRestrictedValue("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox")))
 			draw_stars(driver, wicked_time_of_day);
 
 		// Draw sunrise/sunset horizon glow texture
 		// (textures/base/pack/sunrisebg.png)
-		if (m_sun_params.sunrise_visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && g_settings->getBool("eclipse_skybox"))) {
+		if (m_sun_params.sunrise_visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && GetSettingRestrictedValue("eclipse_skybox"))) {
 			driver->setMaterial(m_materials[2]);
 			float mid1 = 0.25;
 			float mid = wicked_time_of_day < 0.5 ? mid1 : (1.0 - mid1);
@@ -447,16 +448,16 @@ void Sky::render()
 		}
 
 		// Draw sun
-		if (m_sun_params.visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && g_settings->getBool("eclipse_skybox")))
+		if (m_sun_params.visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && GetSettingRestrictedValue("eclipse_skybox")))
 			draw_sun(driver, suncolor, suncolor2, wicked_time_of_day);
 
 		// Draw moon
-		if (m_moon_params.visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && g_settings->getBool("eclipse_skybox")))
+		if (m_moon_params.visible && !(g_settings->getBool("eclipse_skybox.disable_sun_moon") && GetSettingRestrictedValue("eclipse_skybox")))
 			draw_moon(driver, mooncolor, mooncolor2, wicked_time_of_day);
 
 		// Draw far cloudy fog thing below all horizons in front of sun, moon
 		// and stars.
-		if (m_visible && !(g_settings->getBool("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox"))) {
+		if (m_visible && !(GetSettingRestrictedValue("eclipse_skybox") && g_settings->getBool("eclipse_skybox.use_custom_skybox"))) {
 			driver->setMaterial(m_materials[1]);
 
 			for (u32 j = 0; j < 4; j++) {

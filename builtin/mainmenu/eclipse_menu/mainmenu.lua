@@ -137,7 +137,7 @@ local function main_menu_buttonhandler(this, fields)
 		core.open_url_dialog("https://discord.gg/z2bW5h6PXQ")
 		return true
 	elseif fields.website then
-		core.open_url_dialog("https://cloak-v4.web.app")
+		core.open_url_dialog("https://teamacedia.web.app")
 		return true
 	elseif fields.try_quit then
 		return true

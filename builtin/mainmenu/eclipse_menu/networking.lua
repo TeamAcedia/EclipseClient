@@ -12,6 +12,62 @@ networking = {}
 networking.Capes = {}
 networking.SelectedCape = ""
 
+networking.verify_latest_build = function()
+	local http = core.get_http_api()
+	if not http then
+		return false
+	end
+
+	local handle = http.fetch_async({
+		url = API_SERVER_ADDRESS .. "api/latest_build/",
+		timeout = 5,
+	})
+
+	local result = http.fetch_async_get(handle)
+	while not result.completed do
+		result = http.fetch_async_get(handle)
+	end
+
+	if result.succeeded and result.code == 200 then
+		local ok, data = pcall(core.parse_json, result.data)
+		if ok then
+			print("Latest build:", data.latest_build)
+			print("Current build:", core.get_version().eclipse_string)
+			return data.latest_build == core.get_version().eclipse_string
+		end
+	end
+	return false
+end
+
+networking.verify_official_build = function()
+	local session_token = core.settings:get(SESSION_TOKEN_SETTING_NAME)
+	local client_hash = core.hash_against_official(session_token)
+
+	local http = core.get_http_api()
+	if not http then
+		return false, "HTTP API not available."
+	end
+
+	local handle = http.fetch_async({
+		url = API_SERVER_ADDRESS .. "api/verify_official_build/",
+		timeout = 5,
+		post_data = core.write_json({
+			token = session_token,
+			client_hash = client_hash
+		}),
+		extra_headers = {
+			"Content-Type: application/json"
+		}
+	})
+
+	local result = http.fetch_async_get(handle)
+	while not result.completed do
+		result = http.fetch_async_get(handle)
+	end
+
+	return result.succeeded and result.code == 200
+end
+
 function register_account(login_username, hashed_pw)
 	local http = core.get_http_api()
 	if not http then

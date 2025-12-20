@@ -50,6 +50,8 @@ dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_cosmetics.lua")
 dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_csm.lua")
 dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_local.lua")
 dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_online.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_check_official_build.lua")
+dofile(eclipse_menu_path .. DIR_DELIM .. "dlg_check_latest_build.lua")
 dofile(eclipse_menu_path .. DIR_DELIM .. "mainmenu.lua")
 
 local tabs = {
@@ -146,6 +148,8 @@ function init_globals()
 	local parent = mainmenu
 	parent = migrate_keybindings(parent)
 	check_reinstall_mtg(parent)
+	check_latest_build(parent)
+	check_official_build(parent)
 
 	-- asynchronous, will only be shown if we're still on "maintab"
 	--check_new_version() Temporarily disable this until we have a proper update system for Eclipse.

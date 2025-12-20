@@ -20,6 +20,7 @@
 #include "fontengine.h"
 #include "script/scripting_client.h"
 #include "gettext.h"
+#include "script/cpp_api/s_eclipse_mods.h"
 
 #include <ICameraSceneNode.h>
 #include <IGUIFont.h>
@@ -386,7 +387,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 	v3f rel_cam_up = v3f(0,1,0);
 
 	bool should_bob = true;
-	if (g_settings->getBool("eclipse_camera") && !g_settings->getBool("eclipse_camera.view_bobbing")){
+	if (GetSettingRestrictedValue("eclipse_camera") && !g_settings->getBool("eclipse_camera.view_bobbing")){
 		should_bob = false;
 	}
 	if (m_cache_view_bobbing_amount != 0.0f && m_view_bobbing_anim != 0.0f && m_camera_mode < CAMERA_MODE_THIRD && should_bob){
@@ -541,7 +542,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 		wield_rotation *= core::RADTODEG;
 	} else {
 		should_bob = true;
-		if (g_settings->getBool("eclipse_camera") && !g_settings->getBool("eclipse_camera.hand_bobbing")){
+		if (GetSettingRestrictedValue("eclipse_camera") && !g_settings->getBool("eclipse_camera.hand_bobbing")){
 			should_bob = false;
 		}
 		if (should_bob) {
@@ -552,7 +553,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 		}
 	}
 
-	if (g_settings->getBool("eclipse_camera") && g_settings->getBool("eclipse_camera.left_hand")) {
+	if (GetSettingRestrictedValue("eclipse_camera") && g_settings->getBool("eclipse_camera.left_hand")) {
 		wield_position.X = -wield_position.X;
 
 		core::quaternion quat(wield_rotation * core::DEGTORAD);
@@ -567,7 +568,7 @@ void Camera::update(LocalPlayer* player, f32 frametime, f32 tool_reload_ratio)
 		wield_rotation *= core::RADTODEG;
 	}
 
-	if (g_settings->getBool("eclipse_camera")) {
+	if (GetSettingRestrictedValue("eclipse_camera")) {
 		f32 hand_size = g_settings->getFloat("eclipse_camera.hand_size");
 		v3f scale = m_wieldnode->m_render_scale * hand_size;
 		m_wieldnode->setScale(scale);

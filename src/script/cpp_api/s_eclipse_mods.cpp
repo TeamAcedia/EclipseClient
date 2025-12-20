@@ -4,6 +4,47 @@
 
 #include "s_eclipse_mods.h"
 #include <settings.h>
+#include <sstream>
+#include <algorithm>
+
+std::string trim(const std::string &s)
+{
+    const char *ws = " \t\n\r";
+    size_t start = s.find_first_not_of(ws);
+    if (start == std::string::npos)
+        return "";
+    size_t end = s.find_last_not_of(ws);
+    return s.substr(start, end - start + 1);
+}
+
+bool CheckSettingRestricted(const std::string &setting_id)
+{
+    if (!g_settings->exists("client_restrictions"))
+        return false;
+
+    std::string restrictions = g_settings->get("client_restrictions");
+    if (restrictions.empty())
+        return false;
+
+    std::stringstream ss(restrictions);
+    std::string token;
+
+    while (std::getline(ss, token, ',')) {
+        if (trim(token) == setting_id)
+            return true;
+    }
+
+    return false;
+}
+
+
+bool GetSettingRestrictedValue(const std::string &setting_id)
+{
+    if (CheckSettingRestricted(setting_id))
+        return false;
+
+    return g_settings->getBool(setting_id);
+}
 
 
 // ModSetting class that stores one mod setting
@@ -256,10 +297,9 @@ void ScriptApiEclipseMods::init_mods()
     lua_pop(L, 2); // pop mod_categories + core
 }
 
-
-
 void ScriptApiEclipseMods::init_mods_mainmenu()
 {
+	g_settings->set("client_restrictions", "");
 	init_mods();
 }
 

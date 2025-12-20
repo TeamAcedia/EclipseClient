@@ -1269,6 +1269,36 @@ void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s3
     }
 }
 
+void draw_text_shrink_to_fit(
+    video::IVideoDriver* driver,
+    const s32 max_font_size,
+    const std::wstring& text,
+    core::rect<s32> rect,
+    video::SColor color,
+    const core::rect<s32>* clip = nullptr
+) {
+    gui::IGUIFont* font = g_fontengine->getFont(max_font_size, FM_Standard);
+    if (!font) return;
+
+    core::dimension2du text_size = font->getDimension(text.c_str());
+    s32 font_size = max_font_size;
+    while (((static_cast<s32>(text_size.Width) > rect.getWidth()) || (static_cast<s32>(text_size.Height) > rect.getHeight())) && font_size > 4) {
+        font_size -= 2;
+        font = g_fontengine->getFont(font_size, FM_Standard);
+        if (!font) break;
+        text_size = font->getDimension(text.c_str());
+    }
+    if (font) {
+        font->draw(
+            text.c_str(),
+            rect,
+            color,
+            true, true,
+            clip
+        );
+    }
+}
+
 void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> clip, gui::IGUIFont *font, ModCategory *current_category, ColorTheme theme, float dtime)
 {
     m_mods_boxes.clear();
@@ -1344,6 +1374,7 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             draw_x + mod_width,
             draw_y + (mod_height * 0.75f)
         );
+
         if (mod->m_settings_only) {
             // Icon area (middle)
             mod_icon_rect = core::rect<s32>(
@@ -1401,6 +1432,26 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
             theme.text,
             true, true, &clip
         );
+
+        if (CheckSettingRestricted(mod->m_setting_id)) {
+            std::wstring restricted_text = utf8_to_wide("Restricted");
+            draw_text_shrink_to_fit(
+                driver,
+                20,
+                restricted_text,
+                mod_icon_rect,
+                theme.disabled,
+                &clip
+            );
+            x_index++;
+            if (x_index >= num_mods_per_row) {
+                x_index = 0;
+                y_index++;
+            }
+            draw_x = clip.UpperLeftCorner.X + mod_padding + (x_index * (mod_width + (mod_padding * 2)));
+            draw_y = clip.UpperLeftCorner.Y + mod_padding + (y_index * (mod_height + mod_padding)) + m_mods_scroll;
+            continue;
+        }
 
         
         if (!mod->m_settings_only) {
@@ -1557,36 +1608,6 @@ s32 get_setting_render_height(ModSetting& setting)
         return base_height;
 
     return base_height;
-}
-
-void draw_text_shrink_to_fit(
-    video::IVideoDriver* driver,
-    const s32 max_font_size,
-    const std::wstring& text,
-    core::rect<s32> rect,
-    video::SColor color,
-    const core::rect<s32>* clip = nullptr
-) {
-    gui::IGUIFont* font = g_fontengine->getFont(max_font_size, FM_Standard);
-    if (!font) return;
-
-    core::dimension2du text_size = font->getDimension(text.c_str());
-    s32 font_size = max_font_size;
-    while (((static_cast<s32>(text_size.Width) > rect.getWidth()) || (static_cast<s32>(text_size.Height) > rect.getHeight())) && font_size > 4) {
-        font_size -= 2;
-        font = g_fontengine->getFont(font_size, FM_Standard);
-        if (!font) break;
-        text_size = font->getDimension(text.c_str());
-    }
-    if (font) {
-        font->draw(
-            text.c_str(),
-            rect,
-            color,
-            true, true,
-            clip
-        );
-    }
 }
 
 void EclipseMenu::draw_dropdown_options(video::IVideoDriver *driver, gui::IGUIFont *font, ColorTheme theme, std::vector<ModCategory *> categories)
