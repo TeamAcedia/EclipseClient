@@ -13,6 +13,7 @@
 #include "filesys.h"
 #include "exceptions.h"
 
+
 BanManager::BanManager(const std::string &banfilepath):
 		m_banfilepath(banfilepath)
 {
