@@ -77,6 +77,7 @@ public:
 	static void loadHSV(const std::string &key, float &H, float &S, float &V);
 
 	static video::SColor HSVtoSColor(float h, float s, float v);
+    static void draw2DThickLine(video::IVideoDriver* driver, core::vector2d<s32> start, core::vector2d<s32> end, video::SColor color, f32 width, const core::rect<s32>* clip);
 
 	void updateTheming();
 	void updateScaling();
@@ -87,6 +88,7 @@ public:
     virtual bool OnEvent(const SEvent& event) override;
     virtual void draw() override;
     bool isOpen() { return m_is_open; }
+
     
     ~EclipseMenu();
 

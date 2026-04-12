@@ -28,6 +28,7 @@
 #include "gui/drawItemStack.h"
 #include <ICameraSceneNode.h>
 #include <IMesh.h>
+#include "gui/eclipseMenu.h"
 
 #define OBJECT_CROSSHAIR_LINE_SIZE 8
 #define CROSSHAIR_LINE_SIZE 10
@@ -816,52 +817,146 @@ void Hud::drawHotbar(const v2s32 &pos, const v2f &offset, u16 dir, const v2f &al
 
 void Hud::drawCrosshair()
 {
-	auto draw_image_crosshair = [this] (video::ITexture *tex) {
-		core::dimension2di orig_size(tex->getOriginalSize());
-		// Integer scaling to avoid artifacts, floor instead of round since too
-		// small looks better than too large in this case.
-		core::dimension2di scaled_size = orig_size * std::max(std::floor(m_scale_factor), 1.0f);
+	if (g_settings->getBool("eclipse_crosshair") == false || g_settings->get("eclipse_crosshair.style") == "Default") {
+		auto draw_image_crosshair = [this] (video::ITexture *tex) {
+			core::dimension2di orig_size(tex->getOriginalSize());
+			// Integer scaling to avoid artifacts, floor instead of round since too
+			// small looks better than too large in this case.
+			core::dimension2di scaled_size = orig_size * std::max(std::floor(m_scale_factor), 1.0f);
 
-		core::rect<s32> src_rect(orig_size);
-		core::position2d pos(m_displaycenter.X - scaled_size.Width / 2,
-				m_displaycenter.Y - scaled_size.Height / 2);
-		core::rect<s32> dest_rect(pos, scaled_size);
+			core::rect<s32> src_rect(orig_size);
+			core::position2d pos(m_displaycenter.X - scaled_size.Width / 2,
+					m_displaycenter.Y - scaled_size.Height / 2);
+			core::rect<s32> dest_rect(pos, scaled_size);
 
-		video::SColor colors[] = { crosshair_argb, crosshair_argb,
-				crosshair_argb, crosshair_argb };
+			video::SColor colors[] = { crosshair_argb, crosshair_argb,
+					crosshair_argb, crosshair_argb };
 
-		draw2DImageFilterScaled(driver, tex, dest_rect, src_rect,
-				nullptr, colors, true);
-	};
+			draw2DImageFilterScaled(driver, tex, dest_rect, src_rect,
+					nullptr, colors, true);
+		};
 
-	if (pointing_at_object) {
-		if (use_object_crosshair_image) {
-			draw_image_crosshair(tsrc->getTexture("object_crosshair.png"));
-		} else {
-			s32 line_size = core::round32(OBJECT_CROSSHAIR_LINE_SIZE * m_scale_factor);
+		if (pointing_at_object) {
+			if (use_object_crosshair_image) {
+				draw_image_crosshair(tsrc->getTexture("object_crosshair.png"));
+			} else {
+				s32 line_size = core::round32(OBJECT_CROSSHAIR_LINE_SIZE * m_scale_factor);
 
-			driver->draw2DLine(
-					m_displaycenter - v2s32(line_size, line_size),
-					m_displaycenter + v2s32(line_size, line_size),
-					crosshair_argb);
-			driver->draw2DLine(
-					m_displaycenter + v2s32(line_size, -line_size),
-					m_displaycenter + v2s32(-line_size, line_size),
-					crosshair_argb);
+				driver->draw2DLine(
+						m_displaycenter - v2s32(line_size, line_size),
+						m_displaycenter + v2s32(line_size, line_size),
+						crosshair_argb);
+				driver->draw2DLine(
+						m_displaycenter + v2s32(line_size, -line_size),
+						m_displaycenter + v2s32(-line_size, line_size),
+						crosshair_argb);
+			}
+
+			return;
 		}
 
-		return;
-	}
+		if (use_crosshair_image) {
+			draw_image_crosshair(tsrc->getTexture("crosshair.png"));
+		} else {
+			s32 line_size = core::round32(CROSSHAIR_LINE_SIZE * m_scale_factor);
 
-	if (use_crosshair_image) {
-		draw_image_crosshair(tsrc->getTexture("crosshair.png"));
+			driver->draw2DLine(m_displaycenter - v2s32(line_size, 0),
+					m_displaycenter + v2s32(line_size, 0), crosshair_argb);
+			driver->draw2DLine(m_displaycenter - v2s32(0, line_size),
+					m_displaycenter + v2s32(0, line_size), crosshair_argb);
+		}
 	} else {
-		s32 line_size = core::round32(CROSSHAIR_LINE_SIZE * m_scale_factor);
+		std::string style;
+		video::SColor crosshair_color;
+		s32 line_size;
+		s32 line_thickness;
+		if (pointing_at_object) {
+			float H, S, V;
+			EclipseMenu::loadHSV("eclipse_crosshair.object_color", H, S, V);
+			crosshair_color = EclipseMenu::HSVtoSColor(H, S, V);
+			line_size = core::round32((CROSSHAIR_LINE_SIZE * m_scale_factor) * g_settings->getFloat("eclipse_crosshair.object_size"));
+			line_thickness = core::round32(g_settings->getFloat("eclipse_crosshair.object_thickness"));
+			style = g_settings->get("eclipse_crosshair.object_style");
+		} else {
+			float H, S, V;
+			EclipseMenu::loadHSV("eclipse_crosshair.color", H, S, V);
+			crosshair_color = EclipseMenu::HSVtoSColor(H, S, V);
+			line_size = core::round32((CROSSHAIR_LINE_SIZE * m_scale_factor) * g_settings->getFloat("eclipse_crosshair.size"));
+			line_thickness = core::round32(g_settings->getFloat("eclipse_crosshair.thickness"));
+			style = g_settings->get("eclipse_crosshair.style");
+		}
+		if (style == "Dot") {
+			s32 radius = line_size / 8;
 
-		driver->draw2DLine(m_displaycenter - v2s32(line_size, 0),
-				m_displaycenter + v2s32(line_size, 0), crosshair_argb);
-		driver->draw2DLine(m_displaycenter - v2s32(0, line_size),
-				m_displaycenter + v2s32(0, line_size), crosshair_argb);
+			core::rect<s32> rect(
+				m_displaycenter - v2s32(radius, radius),
+				m_displaycenter + v2s32(radius, radius)
+			);
+
+			driver->draw2DRoundedRectangle(rect, crosshair_color, radius, nullptr);
+		}
+		else if (style == "Cross") {
+			s32 half = line_size;
+
+			EclipseMenu::draw2DThickLine(
+				driver,
+				m_displaycenter - v2s32(half, 0),
+				m_displaycenter + v2s32(half + 1, 0),
+				crosshair_color,
+				line_thickness,
+				nullptr
+			);
+
+			EclipseMenu::draw2DThickLine(
+				driver,
+				m_displaycenter - v2s32(0, half),
+				m_displaycenter + v2s32(0, half + 1),
+				crosshair_color,
+				line_thickness,
+				nullptr
+			);
+		}
+		else if (style == "Arrow") {
+			s32 height = line_size;
+
+			v2s32 tip = m_displaycenter;
+			v2s32 left = tip + v2s32(-height, height);
+			v2s32 right = tip + v2s32(height + 1, height + 1);
+
+			EclipseMenu::draw2DThickLine(driver, tip, left, crosshair_color, line_thickness, nullptr);
+
+			EclipseMenu::draw2DThickLine(driver, tip, right, crosshair_color, line_thickness, nullptr);
+		}
+		else if (style == "Dih") {
+			s32 height = line_size;
+			s32 dot_radius = line_thickness;
+
+			v2s32 top = m_displaycenter - v2s32(0, height / 2);
+			v2s32 bottom = m_displaycenter + v2s32(0, height / 2);
+
+			EclipseMenu::draw2DThickLine(
+				driver,
+				top,
+				bottom,
+				crosshair_color,
+				line_thickness,
+				nullptr
+			);
+
+			v2s32 leftDot = bottom + v2s32(-dot_radius * 2, 0);
+			v2s32 rightDot = bottom + v2s32(dot_radius * 2, 0);
+
+			auto drawDot = [&](v2s32 pos) {
+				core::rect<s32> r(
+					pos - v2s32(dot_radius, dot_radius),
+					pos + v2s32(dot_radius, dot_radius)
+				);
+				driver->draw2DRoundedRectangle(r, crosshair_color, dot_radius, nullptr);
+			};
+
+			drawDot(leftDot);
+			drawDot(rightDot);
+		}
 	}
 }
 

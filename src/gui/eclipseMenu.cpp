@@ -987,13 +987,7 @@ static void clipAgainstEdge(
     poly = out;
 }
 
-void draw2DThickLine(
-    video::IVideoDriver* driver,
-    core::vector2d<s32> start,
-    core::vector2d<s32> end,
-    video::SColor color,
-    f32 width,
-    const core::rect<s32>* clip)
+void EclipseMenu::draw2DThickLine(video::IVideoDriver *driver, core::vector2d<s32> start, core::vector2d<s32> end, video::SColor color, f32 width, const core::rect<s32> *clip)
 {
     if (!driver || width <= 0.0f) return;
 

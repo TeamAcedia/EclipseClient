@@ -220,6 +220,90 @@ core.mod_categories = {
                 }
             }
         }
+    },
+    {
+        name = "HUD",
+        mods = {
+                {
+                    name = "Crosshair",
+                    description = "Customize crosshair settings",
+                    icon = "eclipse_crosshair.png",
+                    setting_id = "eclipse_crosshair",
+                    default = false,
+                    settings = {
+                        {
+                            name = "Crosshair Style",
+                            description = "Select the style of the crosshair",
+                            type = "dropdown",
+                            options = {"Default", "Dot", "Cross", "Arrow", "Dih"},
+                            default = "Default",
+                            setting_id = "eclipse_crosshair.style"
+                        },
+                        {
+                            name = "Crosshair Color",
+                            description = "Color of the crosshair",
+                            type = "color_picker",
+                            default = "255,255,255,255",
+                            setting_id = "eclipse_crosshair.color"
+                        },
+                        {
+                            name = "Crosshair Size",
+                            description = "Size of the crosshair",
+                            type = "slider_float",
+                            default = 1.0,
+                            min = 0.5,
+                            max = 3.0,
+                            steps = 26,
+                            setting_id = "eclipse_crosshair.size"
+                        },
+                        {
+                            name = "Crosshair Thickness",
+                            description = "Thickness of the crosshair",
+                            type = "slider_int",
+                            default = 2,
+                            min = 1,
+                            max = 5,
+                            steps = 5,
+                            setting_id = "eclipse_crosshair.thickness"
+                        },
+                        {
+                            name = "Object Crosshair Style",
+                            description = "Select the style of the object crosshair",
+                            type = "dropdown",
+                            options = {"Default", "Dot", "Cross", "Arrow", "Dih"},
+                            default = "Default",
+                            setting_id = "eclipse_crosshair.object_style"
+                        },
+                        {
+                            name = "Object Crosshair Color",
+                            description = "Color of the object crosshair",
+                            type = "color_picker",
+                            default = "255,255,255,255",
+                            setting_id = "eclipse_crosshair.object_color"
+                        },
+                        {
+                            name = "Object Crosshair Size",
+                            description = "Size of the object crosshair",
+                            type = "slider_float",
+                            default = 1.0,
+                            min = 0.5,
+                            max = 3.0,
+                            steps = 26,
+                            setting_id = "eclipse_crosshair.object_size"
+                        },
+                        {
+                            name = "Object Crosshair Thickness",
+                            description = "Thickness of the object crosshair",
+                            type = "slider_int",
+                            default = 2,
+                            min = 1,
+                            max = 5,
+                            steps = 5,
+                            setting_id = "eclipse_crosshair.object_thickness"
+                        }
+                    }
+                }
+        }
     }
 }
 
