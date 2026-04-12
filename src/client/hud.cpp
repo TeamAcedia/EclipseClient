@@ -886,7 +886,7 @@ void Hud::drawCrosshair()
 			style = g_settings->get("eclipse_crosshair.style");
 		}
 		if (style == "Dot") {
-			s32 radius = line_size / 8;
+			s32 radius = line_size / 5;
 
 			core::rect<s32> rect(
 				m_displaycenter - v2s32(radius, radius),
