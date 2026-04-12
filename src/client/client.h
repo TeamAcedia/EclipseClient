@@ -45,6 +45,8 @@ class NodeDefManager;
 class ParticleManager;
 class RenderingEngine;
 class SingleMediaDownloader;
+class ClientScripting;
+class SSCSMController;
 struct ChatMessage;
 struct ClientDynamicInfo;
 struct ClientEvent;
@@ -53,6 +55,7 @@ struct MapNode;
 struct PlayerControl;
 struct PointedThing;
 struct ItemVisualsManager;
+struct ModVFS;
 
 namespace scene {
 class IAnimatedMesh;
@@ -100,8 +103,6 @@ private:
 	std::map<u16, u32> m_packets;
 };
 
-class ClientScripting;
-
 class Client : public con::PeerHandler, public InventoryManager, public IGameDef
 {
 public:
@@ -126,14 +127,6 @@ public:
 
 	~Client();
 	DISABLE_CLASS_COPY(Client);
-
-	// Load local mods into memory
-	void scanModSubfolder(const std::string &mod_name, const std::string &mod_path,
-				std::string mod_subpath);
-	inline void scanModIntoMemory(const std::string &mod_name, const std::string &mod_path)
-	{
-		scanModSubfolder(mod_name, mod_path, "");
-	}
 
 	/*
 	 request all threads managed by client to be stopped
@@ -383,7 +376,7 @@ public:
 	bool checkLocalPrivilege(const std::string &priv)
 	{ return checkPrivilege(priv); }
 	virtual scene::IAnimatedMesh* getMesh(const std::string &filename, bool cache = false);
-	const std::string* getModFile(std::string filename);
+	ModVFS *getModVFS() { return m_mod_vfs.get(); }
 	ModStorageDatabase *getModStorageDatabase() override { return m_mod_storage_database; }
 
 	ItemVisualsManager *getItemVisualsManager() { return m_item_visuals_manager; }
@@ -448,6 +441,20 @@ public:
 	bool inhibit_inventory_revert = false;
 
 private:
+	struct PendingMediaDownload {
+		// Tokens to ack to the server. multiple because server can send duplicate
+		// requests
+		std::vector<u32> tokens;
+		std::string name; // Filename
+		std::shared_ptr<SingleMediaDownloader> d;
+
+		PendingMediaDownload(u32 token, const std::string &name,
+				const std::shared_ptr<SingleMediaDownloader> &d) : name(name), d(d)
+		{
+			tokens.push_back(token);
+		}
+	};
+
 	void loadMods();
 
 	// Virtual methods from con::PeerHandler
@@ -546,8 +553,8 @@ private:
 	std::vector<std::string> m_remote_media_servers;
 	// Media downloader, only exists during init
 	std::unique_ptr<ClientMediaDownloader> m_media_downloader;
-	// Pending downloads of dynamic media (key: token)
-	std::vector<std::pair<u32, std::shared_ptr<SingleMediaDownloader>>> m_pending_media_downloads;
+	// Pending downloads of dynamic media
+	std::vector<PendingMediaDownload> m_pending_media_downloads;
 
 	// An interval for generally sending object positions and stuff
 	float m_recommended_send_interval = 0.1f;
@@ -585,7 +592,10 @@ private:
 	ModStorageDatabase *m_mod_storage_database = nullptr;
 	float m_mod_storage_save_timer = 10.0f;
 	std::vector<ModSpec> m_mods;
-	StringMap m_mod_vfs;
+	std::unique_ptr<ModVFS> m_mod_vfs;
+
+	// SSCSM
+	std::unique_ptr<SSCSMController> m_sscsm_controller;
 
 	bool m_shutdown = false;
 

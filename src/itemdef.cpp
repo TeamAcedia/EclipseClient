@@ -62,20 +62,14 @@ void TouchInteraction::serialize(std::ostream &os) const
 void TouchInteraction::deSerialize(std::istream &is)
 {
 	u8 tmp = readU8(is);
-	if (is.eof())
-		throw SerializationError("");
 	if (tmp < TouchInteractionMode_END)
 		pointed_nothing = (TouchInteractionMode)tmp;
 
 	tmp = readU8(is);
-	if (is.eof())
-		throw SerializationError("");
 	if (tmp < TouchInteractionMode_END)
 		pointed_node = (TouchInteractionMode)tmp;
 
 	tmp = readU8(is);
-	if (is.eof())
-		throw SerializationError("");
 	if (tmp < TouchInteractionMode_END)
 		pointed_object = (TouchInteractionMode)tmp;
 }
@@ -325,10 +319,16 @@ void ItemDefinition::deSerialize(std::istream &is, u16 protocol_version)
 	inventory_overlay .deSerialize(is, protocol_version);
 	wield_overlay.deSerialize(is, protocol_version);
 
-	// If you add anything here, insert it inside the try-catch
-	// block to not need to increase the version.
-	try {
+	do {
+		if (!canRead(is))
+			break;
+		// >= 5.4.0-dev
+
 		short_description = deSerializeString16(is);
+
+		if (!canRead(is))
+			break;
+		// >= 5.5.0-dev
 
 		if (protocol_version <= 43) {
 			place_param2 = readU8(is);
@@ -337,16 +337,25 @@ void ItemDefinition::deSerialize(std::istream &is, u16 protocol_version)
 				place_param2.reset();
 		}
 
+		if (!canRead(is))
+			break;
+		// >= 5.7.0-dev
+
 		sound_use.deSerializeSimple(is, protocol_version);
 		sound_use_air.deSerializeSimple(is, protocol_version);
 
-		if (is.eof())
-			throw SerializationError("");
+		if (!canRead(is))
+			break;
+		// >= 5.8.0-dev
 
-		if (readU8(is)) // protocol_version >= 43
+		if (readU8(is)) // "have param2"
 			place_param2 = readU8(is);
 
-		wallmounted_rotate_vertical = readU8(is); // 0 if missing
+		if (!canRead(is))
+			break;
+		// >= 5.9.0-dev
+
+		wallmounted_rotate_vertical = readU8(is);
 		touch_interaction.deSerialize(is);
 
 		std::string pointabilities_s = deSerializeString16(is);
@@ -356,10 +365,13 @@ void ItemDefinition::deSerialize(std::istream &is, u16 protocol_version)
 			pointabilities->deSerialize(tmp_is);
 		}
 
-		if (readU8(is)) {
+		if (readU8(is)) // "have wear bar params"
 			wear_bar_params = WearBarParams::deserialize(is);
-		}
-	} catch(SerializationError &e) {};
+
+		//if (!canRead(is))
+		//	break;
+		// Add new code here
+	} while (0);
 }
 
 
@@ -466,22 +478,22 @@ public:
 		hand_def->name.clear();
 		hand_def->wield_image = "wieldhand.png";
 		hand_def->tool_capabilities = new ToolCapabilities;
-		m_item_definitions.insert(std::make_pair("", hand_def));
+		m_item_definitions.emplace("", hand_def);
 
 		ItemDefinition* unknown_def = new ItemDefinition;
 		unknown_def->type = ITEM_NODE;
 		unknown_def->name = "unknown";
-		m_item_definitions.insert(std::make_pair("unknown", unknown_def));
+		m_item_definitions.emplace("unknown", unknown_def);
 
 		ItemDefinition* air_def = new ItemDefinition;
 		air_def->type = ITEM_NODE;
 		air_def->name = "air";
-		m_item_definitions.insert(std::make_pair("air", air_def));
+		m_item_definitions.emplace("air", air_def);
 
 		ItemDefinition* ignore_def = new ItemDefinition;
 		ignore_def->type = ITEM_NODE;
 		ignore_def->name = "ignore";
-		m_item_definitions.insert(std::make_pair("ignore", ignore_def));
+		m_item_definitions.emplace("ignore", ignore_def);
 	}
 
 	virtual void registerItem(const ItemDefinition &def)

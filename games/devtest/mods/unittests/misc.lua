@@ -231,6 +231,9 @@ local function test_mapgen_edges(cb)
 	end
 	local emerges_left = 2
 	local function emerge_block(blockpos, action, blocks_left, finished)
+		-- FIXME: EMERGE_CANCELLED can also mean that the block was already being
+		-- emerged. It's unlikely but this can break the test and we can't
+		-- really tell...
 		if action ~= core.EMERGE_CANCELLED then
 			table.insert(finished, blockpos)
 		end
@@ -363,3 +366,11 @@ local function test_sandbox()
 	assert(debug.getinfo(function() end, "f").func ~= nil)
 end
 unittests.register("test_sandbox", test_sandbox)
+
+local function test_str_pack_unpack()
+	local fmt = "> d!2 xh"
+	assert(fmt:packsize() == 12) -- 8 double, 1 padding, 1 implicit align, 2 short
+	local a, b = fmt:unpack(fmt:pack(42.3, -384))
+	assert(a == 42.3 and b == -384)
+end
+unittests.register("test_str_pack_unpack", test_str_pack_unpack)

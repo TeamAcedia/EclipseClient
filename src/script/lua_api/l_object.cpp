@@ -20,7 +20,7 @@
 #include "server.h"
 #include "serverenvironment.h"
 #include "settings.h"
-#include "hud.h"
+#include "hud_element.h"
 #include "server/luaentity_sao.h"
 #include "server/player_sao.h"
 #include "server/serverinventorymgr.h"
@@ -204,7 +204,7 @@ int ObjectRef::l_punch(lua_State *L)
 		return 0;
 
 	float time_from_last_punch = readParam<float>(L, 3, 1000000.0f);
-	ToolCapabilities toolcap = read_tool_capabilities(L, 4);
+	ToolCapabilities toolcap = read_tool_capabilities(L, 4); // not optional!
 	v3f dir;
 	if (puncher) {
 		dir = readParam<v3f>(L, 5, sao->getBasePosition() - puncher->getBasePosition());
@@ -213,7 +213,7 @@ int ObjectRef::l_punch(lua_State *L)
 		dir = readParam<v3f>(L, 5, v3f(0));
 	}
 
-	u32 wear = sao->punch(dir, &toolcap, puncher, time_from_last_punch);
+	u32 wear = sao->punch(dir, toolcap, puncher, time_from_last_punch);
 	lua_pushnumber(L, wear);
 
 	return 1;
@@ -2097,7 +2097,7 @@ int ObjectRef::l_set_sky(lua_State *L)
 		if (sky_params.textures.size() != 6 && !sky_params.textures.empty())
 			throw LuaError("Skybox expects 6 textures!");
 
-		sky_params.clouds = getboolfield_default(L, 2, "clouds", sky_params.clouds);
+		getboolfield(L, 2, "clouds", sky_params.clouds);
 
 		lua_getfield(L, 2, "sky_color");
 		if (lua_istable(L, -1)) {
@@ -2159,6 +2159,8 @@ int ObjectRef::l_set_sky(lua_State *L)
 			lua_pop(L, 1);
 		}
 		lua_pop(L, 1);
+
+		getboolfield(L, 2, "auto_dim_skybox", sky_params.auto_dim_skybox);
 	} else {
 		// Handle old set_sky calls, and log deprecated:
 		log_deprecated(L, "Deprecated call to set_sky, please check lua_api.md");
@@ -2289,6 +2291,9 @@ int ObjectRef::l_get_sky(lua_State *L)
 	lua_pushboolean(L, skybox_params.clouds);
 	lua_setfield(L, -2, "clouds");
 
+	lua_pushboolean(L, skybox_params.auto_dim_skybox);
+	lua_setfield(L, -2, "auto_dim_skybox");
+
 	push_sky_color(L, skybox_params);
 	lua_setfield(L, -2, "sky_color");
 
@@ -2297,6 +2302,8 @@ int ObjectRef::l_get_sky(lua_State *L)
 	lua_setfield(L, -2, "fog_distance");
 	lua_pushnumber(L, skybox_params.fog_start >= 0 ? skybox_params.fog_start : -1.0f);
 	lua_setfield(L, -2, "fog_start");
+	push_ARGB8(L, skybox_params.fog_color);
+	lua_setfield(L, -2, "fog_color");
 	lua_setfield(L, -2, "fog");
 
 	return 1;
@@ -2684,6 +2691,10 @@ int ObjectRef::l_set_lighting(lua_State *L)
 			lua_getfield(L, -1, "tint");
 			read_color(L, -1, &lighting.shadow_tint);
 			lua_pop(L, 1); // tint
+			lua_getfield(L, -1, "direction");
+			if (!lua_isnil(L, -1))
+				lighting.shadow_direction = check_v3f(L, -1);
+			lua_pop(L, 1); // direction
 		}
 		lua_pop(L, 1); // shadows
 
@@ -2737,6 +2748,8 @@ int ObjectRef::l_get_lighting(lua_State *L)
 	lua_setfield(L, -2, "intensity");
 	push_ARGB8(L, lighting.shadow_tint);
 	lua_setfield(L, -2, "tint");
+	push_v3f(L, lighting.shadow_direction);
+	lua_setfield(L, -2, "direction");
 	lua_setfield(L, -2, "shadows");
 	lua_pushnumber(L, lighting.saturation);
 	lua_setfield(L, -2, "saturation");

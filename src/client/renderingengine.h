@@ -64,8 +64,6 @@ public:
 class RenderingEngine
 {
 public:
-	static const video::SColor MENU_SKY_COLOR;
-
 	RenderingEngine(MyEventReceiver *eventReceiver);
 	~RenderingEngine();
 
@@ -75,6 +73,11 @@ public:
 
 	static const VideoDriverInfo &getVideoDriverInfo(video::E_DRIVER_TYPE type);
 	static float getDisplayDensity();
+
+	// Show error message box to user. Intended for situations where graphics
+	// output might not even be working.
+	// Will block.
+	static void showErrorMessageBox(const std::string &message);
 
 	bool setupTopLevelWindow();
 	bool setWindowIcon();
@@ -161,6 +164,9 @@ public:
 		sanity_check(s_singleton && s_singleton->m_receiver);
 		return s_singleton->m_receiver->getLastPointerType();
 	}
+
+	video::SColor m_menu_sky_color = video::SColor(255, 140, 186, 250);
+	video::SColor m_menu_clouds_color = video::SColor(255, 240, 240, 255);
 
 private:
 	static void settingChangedCallback(const std::string &name, void *data);

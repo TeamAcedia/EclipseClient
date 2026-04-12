@@ -8,7 +8,7 @@
 #include "inputhandler.h"
 #include "gui/mainmenumanager.h"
 #include "gui/touchcontrols.h"
-#include "hud.h"
+#include "hud_element.h"
 #include "log_internal.h"
 #include "client/renderingengine.h"
 
@@ -26,7 +26,7 @@ void MyEventReceiver::reloadKeybindings()
 	keybindings[KeyType::DIG] = getKeySetting("keymap_dig");
 	keybindings[KeyType::PLACE] = getKeySetting("keymap_place");
 
-	keybindings[KeyType::ESC] = EscapeKey;
+	keybindings[KeyType::ESC] = std::vector<KeyPress>{EscapeKey};
 
 	keybindings[KeyType::AUTOFORWARD] = getKeySetting("keymap_autoforward");
 
@@ -63,6 +63,11 @@ void MyEventReceiver::reloadKeybindings()
 	keybindings[KeyType::RANGESELECT] = getKeySetting("keymap_rangeselect");
 	keybindings[KeyType::ZOOM] = getKeySetting("keymap_zoom");
 
+	keybindings[KeyType::CAMERA_YAW_LEFT] = getKeySetting("keymap_camera_yaw_left");
+	keybindings[KeyType::CAMERA_YAW_RIGHT] = getKeySetting("keymap_camera_yaw_right");
+	keybindings[KeyType::CAMERA_PITCH_UP] = getKeySetting("keymap_camera_pitch_up");
+	keybindings[KeyType::CAMERA_PITCH_DOWN] = getKeySetting("keymap_camera_pitch_down");
+
 	keybindings[KeyType::QUICKTUNE_NEXT] = getKeySetting("keymap_quicktune_next");
 	keybindings[KeyType::QUICKTUNE_PREV] = getKeySetting("keymap_quicktune_prev");
 	keybindings[KeyType::QUICKTUNE_INC] = getKeySetting("keymap_quicktune_inc");
@@ -79,7 +84,11 @@ void MyEventReceiver::reloadKeybindings()
 	// First clear all keys, then re-add the ones we listen for
 	keysListenedFor.clear();
 	for (int i = 0; i < KeyType::INTERNAL_ENUM_COUNT; i++) {
-		listenForKey(keybindings[i], static_cast<GameKeyType>(i));
+		GameKeyType game_key = static_cast<GameKeyType>(i);
+		keybindings[i].emplace_back(game_key);
+		for (auto key: keybindings[i]) {
+			listenForKey(key, game_key);
+		}
 	}
 }
 
@@ -88,13 +97,11 @@ bool MyEventReceiver::setKeyDown(KeyPress keyCode, bool is_down)
 	if (keysListenedFor.find(keyCode) == keysListenedFor.end()) // ignore irrelevant key input
 		return false;
 	auto action = keysListenedFor[keyCode];
-	if (is_down) {
+	if (is_down)
 		physicalKeyDown.insert(keyCode);
-		setKeyDown(action, true);
-	} else {
+	else
 		physicalKeyDown.erase(keyCode);
-		setKeyDown(action, false);
-	}
+	setKeyDown(action, checkKeyDown(action));
 	return true;
 }
 
@@ -110,6 +117,15 @@ void MyEventReceiver::setKeyDown(GameKeyType action, bool is_down)
 			keyWasReleased.set(action);
 		keyIsDown.reset(action);
 	}
+}
+
+bool MyEventReceiver::checkKeyDown(GameKeyType action) const
+{
+	for (const auto &key : keybindings[action]) {
+		if (physicalKeyDown.find(key) != physicalKeyDown.end())
+			return true;
+	}
+	return false;
 }
 
 bool MyEventReceiver::OnEvent(const SEvent &event)
@@ -141,7 +157,7 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 	if (event.EventType == EET_KEY_INPUT_EVENT) {
 		KeyPress keyCode(event.KeyInput);
 
-		if (keyCode == getKeySetting("keymap_fullscreen")) {
+		if (keySettingHasMatch("keymap_fullscreen", keyCode)) {
 			if (event.KeyInput.PressedDown && !fullscreen_is_down) {
 				IrrlichtDevice *device = RenderingEngine::get_raw_device();
 
@@ -154,12 +170,10 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 			fullscreen_is_down = event.KeyInput.PressedDown;
 			return true;
 
-		} else if (keyCode == getKeySetting("keymap_close_world")) {
+		} else if (keySettingHasMatch("keymap_close_world", keyCode)) {
 			close_world_down = event.KeyInput.PressedDown;
 
-		} else if (keyCode == EscapeKey) {
-			esc_down = event.KeyInput.PressedDown;
-		} else if (keyCode == getKeySetting("keymap_show_eclipse_menu")) {
+		} else if (keySettingHasMatch("keymap_show_eclipse_menu", keyCode)) {
 			if (event.KeyInput.PressedDown) {
 				open_eclipse_menu_pressed = true;
 			}
@@ -199,22 +213,16 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 		// Handle mouse events
 		switch (event.MouseInput.Event) {
 		case EMIE_LMOUSE_PRESSED_DOWN:
-			setKeyDown(LMBKey, true);
-			break;
 		case EMIE_MMOUSE_PRESSED_DOWN:
-			setKeyDown(MMBKey, true);
-			break;
 		case EMIE_RMOUSE_PRESSED_DOWN:
-			setKeyDown(RMBKey, true);
+		case EMIE_XMOUSE_PRESSED_DOWN:
+			setKeyDown(KeyPress(event.MouseInput), true);
 			break;
 		case EMIE_LMOUSE_LEFT_UP:
-			setKeyDown(LMBKey, false);
-			break;
 		case EMIE_MMOUSE_LEFT_UP:
-			setKeyDown(MMBKey, false);
-			break;
 		case EMIE_RMOUSE_LEFT_UP:
-			setKeyDown(RMBKey, false);
+		case EMIE_XMOUSE_LEFT_UP:
+			setKeyDown(KeyPress(event.MouseInput), false);
 			break;
 		case EMIE_MOUSE_WHEEL:
 			mouse_wheel += event.MouseInput.Wheel;
@@ -222,6 +230,10 @@ bool MyEventReceiver::OnEvent(const SEvent &event)
 		default:
 			break;
 		}
+	} else if (event.EventType == EET_USER_EVENT && event.UserEvent.type == EUET_GAME_KEY) {
+		KeyPress keyCode(static_cast<GameKeyType>(event.UserEvent.UserData1));
+		setKeyDown(keyCode, event.UserEvent.UserData2 != 0);
+		return true;
 	}
 
 	// tell Irrlicht to continue processing this event

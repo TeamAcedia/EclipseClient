@@ -98,6 +98,18 @@ void GUIBox::draw()
 
 	driver->draw2DRoundedRectangle(main_rect, m_colors[0], 10, &AbsoluteClippingRect);
 
+	// The border rectangle can be larger than 'AbsoluteClippingRect',
+	// hence clip against the (generally larger) parent.
+	core::rect<s32> border_rect = core::rect<s32>(
+		topleft_border.X,
+		topleft_border.Y,
+		lowerright_border.X,
+		lowerright_border.Y
+	);
+	if(!isNotClipped()) {
+		border_rect.clipAgainst(Parent->getAbsoluteClippingRect());
+	}
+
 	for (size_t i = 0; i <= 3; i++)
 		driver->draw2DRoundedRectangle(m_bordercolors[i], border_rects[i],
 				&AbsoluteClippingRect);

@@ -1,7 +1,11 @@
 # Always run during 'make'
 
 if(NOT VERSION_GITHASH)
-	set(VERSION_GITHASH "${VERSION_STRING}")
+	if(DEVELOPMENT_BUILD)
+		set(VERSION_GITHASH "${VERSION_STRING}-unknown")
+	else()
+		set(VERSION_GITHASH "${VERSION_STRING}")
+	endif()
 endif()
 
 configure_file(

@@ -22,7 +22,7 @@ set(ECLIPSE_VERSION_PATCH 0)
 
 # You should not need to edit these manually, use util/bump_version.sh
 set(VERSION_MAJOR 5)
-set(VERSION_MINOR 15)
+set(VERSION_MINOR 16)
 set(VERSION_PATCH 0)
 set(VERSION_EXTRA "" CACHE STRING "Stuff to append to version string")
 
@@ -300,6 +300,7 @@ find_package(Lua REQUIRED)
 if(NOT USE_LUAJIT)
 	add_subdirectory(lib/bitop)
 endif()
+add_subdirectory(lib/lstrpack)
 add_subdirectory(lib/sha256)
 
 if(BUILD_UNITTESTS OR BUILD_BENCHMARKS)
@@ -312,7 +313,7 @@ add_subdirectory(lib/tiniergltf)
 # Be sure to add all relevant definitions above this
 add_subdirectory(src)
 
-# CPack
+# Package generation
 
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A free open-source voxel game engine with easy modding and game creation.")
 set(CPACK_PACKAGE_VERSION_MAJOR ${VERSION_MAJOR})
@@ -362,11 +363,28 @@ if(WIN32)
 		# and install the appropriate one.
 		# CMake does not support that, so there are two separate GUID's
 		if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-			set(CPACK_WIX_UPGRADE_GUID "745A0FB3-5552-44CA-A587-A91C397CCC56")
+			set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-win64")
 		else()
-			set(CPACK_WIX_UPGRADE_GUID "814A2E2D-2779-4BBD-9ACD-FC3BD51FBBA2")
+			set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-win32")
 		endif()
 	endif()
+
+	if(NOT RUN_IN_PLACE)
+		set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-nsis")
+		install(FILES "misc/luanti-icon.ico" DESTINATION ".")
+		install(FILES "misc/sfx-launcher.nsi" DESTINATION ".")
+		# normalize to 0/1
+		set(DEVELOPMENT_BUILD01 0)
+		if(DEVELOPMENT_BUILD)
+			set(DEVELOPMENT_BUILD01 1)
+		endif()
+		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/misc/meta.nsh.in"
+			"${CMAKE_CURRENT_BINARY_DIR}/misc/meta.nsh" @ONLY ESCAPE_QUOTES)
+		install(FILES "${CMAKE_CURRENT_BINARY_DIR}/misc/meta.nsh" DESTINATION ".")
+	endif()
+
+	# we just generate a ZIP file and someone has to run makensis manually
+	set(CPACK_GENERATOR ZIP)
 elseif(APPLE)
 	set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
 	set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-osx")
