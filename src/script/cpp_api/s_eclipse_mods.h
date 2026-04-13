@@ -9,6 +9,7 @@
 #include "script/cpp_api/s_internal.h"
 #include <vector>
 #include <string>
+#include <irrlicht.h>
 
 // Helper functions
 
@@ -35,6 +36,8 @@ public:
 	double m_size;
 	std::vector<std::string *> m_options;
 	std::string m_setting_id;
+	bool m_hint_shown = false;
+	core::rect<s32> m_hint_rect;
 };
 
 // Mods class that stores mod information and settings
@@ -54,6 +57,8 @@ public:
 	bool has_settings();
 	std::vector<ModSetting *> m_mod_settings;
 	std::string m_setting_id;
+	bool m_hint_shown = false;
+	core::rect<s32> m_hint_rect;
 };
 
 

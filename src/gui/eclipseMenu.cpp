@@ -1042,6 +1042,56 @@ void EclipseMenu::draw2DThickLine(video::IVideoDriver *driver, core::vector2d<s3
         video::EIT_16BIT);
 }
 
+void EclipseMenu::draw2DTriangle(
+    video::IVideoDriver *driver,
+    core::vector2d<s32> p1,
+    core::vector2d<s32> p2,
+    core::vector2d<s32> p3,
+    video::SColor color,
+    const core::rect<s32> *clip)
+{
+    if (!driver) return;
+
+    core::array<core::vector2df> poly;
+    poly.push_back(core::vector2df((f32)p1.X, (f32)p1.Y));
+    poly.push_back(core::vector2df((f32)p2.X, (f32)p2.Y));
+    poly.push_back(core::vector2df((f32)p3.X, (f32)p3.Y));
+
+    if (clip)
+    {
+        for (int edge = 0; edge < 4; edge++)
+            clipAgainstEdge(poly, *clip, edge);
+
+        if (poly.size() < 3)
+            return; // fully clipped
+    }
+
+    core::array<video::S3DVertex> verts;
+    core::array<u16> indices;
+
+    for (u32 i = 0; i < poly.size(); i++) {
+        const core::vector2df &p = poly[i];
+        verts.push_back(video::S3DVertex(p.X, p.Y, 0, 0, 0, -1, color, 0, 0));
+    }
+
+    for (u32 i = 1; i + 1 < poly.size(); i++) {
+        indices.push_back(0);
+        indices.push_back(i);
+        indices.push_back(i + 1);
+    }
+
+    video::SMaterial m;
+    m.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+    driver->setMaterial(m);
+
+    driver->draw2DVertexPrimitiveList(
+        verts.const_pointer(), verts.size(),
+        indices.const_pointer(), indices.size() / 3,
+        video::EVT_STANDARD,
+        scene::EPT_TRIANGLES,
+        video::EIT_16BIT
+    );
+}
 
 // Simple helper to draw a rounded rectangle with a drop shadow
 void drawRoundedRectShadow(
@@ -1413,6 +1463,8 @@ void EclipseMenu::draw_mods_list(video::IVideoDriver *driver, core::rect<s32> cl
         drawRoundedRectShadow(driver, mod_rect, theme.secondary, corner_radius, corner_radius, corner_radius, corner_radius, 4, 6, 0.1f, &clip);
 
         // Hover overlay
+        mod->m_hint_shown = mod_rect.isPointInside(m_current_mouse_pos) && clip.isPointInside(m_current_mouse_pos);
+        mod->m_hint_rect = mod_rect;
         setAnimationTarget(mod->m_name + "_hover", mod_rect.isPointInside(m_current_mouse_pos) && clip.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
         u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(mod->m_name + "_hover")) * 64);
         video::SColor highlight = theme.secondary_muted;
@@ -1900,6 +1952,8 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
             );
 
             // Draw hover overlay
+            setting->m_hint_shown = setting_rect.isPointInside(m_current_mouse_pos) && settings_area.isPointInside(m_current_mouse_pos);
+            setting->m_hint_rect = setting_rect;
             setAnimationTarget(setting->m_name + "_hover", setting_rect.isPointInside(m_current_mouse_pos) && settings_area.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
             u32 highlight_alpha = (u32)(easeInOutCubic(getAnimation(setting->m_name + "_hover")) * 64);
             video::SColor highlight = theme.secondary_muted;
@@ -2616,6 +2670,180 @@ void EclipseMenu::draw_color_picker(video::IVideoDriver* driver, gui::IGUIFont* 
     }
 }
 
+
+
+void EclipseMenu::draw_hints(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories, core::rect<s32> clip)
+{
+    std::string current_category_name = g_settings->get("eclipse.current_category");
+    std::string current_module_name = g_settings->get("eclipse.current_module");
+    s32 hint_width = applyScalingFactorS32(250);
+    s32 hint_height = applyScalingFactorS32(30);
+    s32 hint_padding = applyScalingFactorS32(10);
+    // Find category by name
+    for (auto* cat : categories) {
+        for (Mod* mod : cat->mods) {
+            setAnimationTarget(mod->m_name + "_hint_visible", mod->m_hint_shown ? 1.0 : 0.0);
+            if (getAnimation(mod->m_name + "_hint_visible") > 0.0 && cat->m_name == current_category_name) {
+
+                v2s32 center = mod->m_hint_rect.getCenter();
+                s32 anchorY = mod->m_hint_rect.UpperLeftCorner.Y;
+                s32 temp_hint_height = hint_height * getAnimation(mod->m_name + "_hint_visible");
+                core::rect<s32> hint_rect(
+                    center.X - (hint_width / 2),
+                    anchorY - hint_padding - temp_hint_height,
+                    center.X + (hint_width / 2),
+                    anchorY - hint_padding
+                );
+
+                // draw hint background
+                driver->draw2DRoundedRectangle(
+                    hint_rect,
+                    current_theme.secondary_muted,
+                    applyScalingFactorS32(5),
+                    applyScalingFactorS32(5),
+                    applyScalingFactorS32(5),
+                    applyScalingFactorS32(5),
+                    nullptr
+                );
+                
+                // draw background outline
+                driver->draw2DRoundedRectangleOutline(
+                    hint_rect,
+                    current_theme.text_muted,
+                    applyScalingFactorS32(2),
+                    applyScalingFactorS32(5),
+                    applyScalingFactorS32(5),
+                    applyScalingFactorS32(5),
+                    applyScalingFactorS32(5)
+                );
+
+                // draw hint background down arrow
+                s32 arrow_size = applyScalingFactorS32(8);
+                core::vector2d<s32> arrow_center = core::vector2d<s32>(center.X, (anchorY - hint_padding) + (arrow_size - applyScalingFactorS32(2)));
+                core::vector2d<s32> arrow_left = core::vector2d<s32>(arrow_center.X - arrow_size, arrow_center.Y - arrow_size);
+                core::vector2d<s32> arrow_right = core::vector2d<s32>(arrow_center.X + arrow_size, arrow_center.Y - arrow_size);
+                draw2DTriangle(
+                    driver,
+                    arrow_left,
+                    arrow_right,
+                    arrow_center,
+                    current_theme.secondary_muted,
+                    nullptr
+                );
+
+                draw2DThickLine(
+                    driver,
+                    arrow_left,
+                    arrow_center,
+                    current_theme.text_muted,
+                    applyScalingFactorDouble(1.0),
+                    nullptr
+                );
+
+                draw2DThickLine(
+                    driver,
+                    arrow_center,
+                    arrow_right,
+                    current_theme.text_muted,
+                    applyScalingFactorDouble(1.0),
+                    nullptr
+                );
+
+                std::wstring whint = utf8_to_wide(mod->m_description);
+                draw_text_shrink_to_fit(
+                    driver,
+                    applyScalingFactorS32(18),
+                    whint,
+                    hint_rect,
+                    current_theme.text,
+                    nullptr
+                );
+            }
+
+            if (mod->m_name == current_module_name) {
+                for (ModSetting* setting : mod->m_mod_settings) {
+                    setAnimationTarget(setting->m_name + "_hint_visible", setting->m_hint_shown ? 1.0 : 0.0);
+                    if (getAnimation(setting->m_name + "_hint_visible") > 0.0) {
+                        v2s32 center = setting->m_hint_rect.getCenter();
+                        s32 anchorY = setting->m_hint_rect.UpperLeftCorner.Y;
+                        s32 temp_hint_height = hint_height *(getAnimation(setting->m_name + "_hint_visible"));
+                        core::rect<s32> hint_rect(
+                            center.X - (hint_width / 2),
+                            anchorY - hint_padding - temp_hint_height,
+                            center.X + (hint_width / 2),
+                            anchorY - hint_padding
+                        );
+                        // draw hint background
+                        driver->draw2DRoundedRectangle(
+                            hint_rect,
+                            current_theme.secondary_muted,
+                            applyScalingFactorS32(5),
+                            applyScalingFactorS32(5),
+                            applyScalingFactorS32(5),
+                            applyScalingFactorS32(5),
+                            nullptr
+                        );
+                        
+                        // draw background outline
+                        driver->draw2DRoundedRectangleOutline(
+                            hint_rect,
+                            current_theme.text_muted,
+                            applyScalingFactorS32(2),
+                            applyScalingFactorS32(5),
+                            applyScalingFactorS32(5),
+                            applyScalingFactorS32(5),
+                            applyScalingFactorS32(5)
+                        );
+
+                        // draw hint background down arrow
+                        s32 arrow_size = applyScalingFactorS32(8);
+                        core::vector2d<s32> arrow_center = core::vector2d<s32>(center.X, (anchorY - hint_padding) + (arrow_size - applyScalingFactorS32(2)));
+                        core::vector2d<s32> arrow_left = core::vector2d<s32>(arrow_center.X - arrow_size, arrow_center.Y - arrow_size);
+                        core::vector2d<s32> arrow_right = core::vector2d<s32>(arrow_center.X + arrow_size, arrow_center.Y - arrow_size);
+                        draw2DTriangle(
+                            driver,
+                            arrow_left,
+                            arrow_right,
+                            arrow_center,
+                            current_theme.secondary_muted,
+                            nullptr
+                        );
+
+                        draw2DThickLine(
+                            driver,
+                            arrow_left,
+                            arrow_center,
+                            current_theme.text_muted,
+                            applyScalingFactorDouble(1.0),
+                            nullptr
+                        );
+
+                        draw2DThickLine(
+                            driver,
+                            arrow_center,
+                            arrow_right,
+                            current_theme.text_muted,
+                            applyScalingFactorDouble(1.0),
+                            nullptr
+                        );
+                        std::wstring whint = utf8_to_wide(setting->m_description);
+                        draw_text_shrink_to_fit(
+                            driver,
+                            applyScalingFactorS32(18),
+                            whint,
+                            hint_rect,
+                            current_theme.text,
+                            nullptr
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    
+}
+
 void EclipseMenu::draw() 
 {
     GET_CATEGORIES_OR_RETURN(categories);
@@ -2749,6 +2977,7 @@ void EclipseMenu::draw()
         draw_mods_list(driver, m_mods_list_rect, font, current_category, theme, dtime);
         draw_module_settings(driver, module_settings_rect, module_settings_topbar_rect, font, categories, theme, dtime);
         draw_dropdown_options(driver, font, theme, categories);
+        draw_hints(driver, font, theme, categories, menurect);
         draw_color_picker(driver, font, theme, categories);
     }
 } 

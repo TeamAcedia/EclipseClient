@@ -78,6 +78,7 @@ public:
 
 	static video::SColor HSVtoSColor(float h, float s, float v);
     static void draw2DThickLine(video::IVideoDriver* driver, core::vector2d<s32> start, core::vector2d<s32> end, video::SColor color, f32 width, const core::rect<s32>* clip);
+    static void draw2DTriangle(video::IVideoDriver *driver, core::vector2d<s32> p1, core::vector2d<s32> p2, core::vector2d<s32> p3, video::SColor color, const core::rect<s32> *clip);
 
 	void updateTheming();
 	void updateScaling();
@@ -214,6 +215,7 @@ private:
     void draw_module_settings(video::IVideoDriver* driver, core::rect<s32> clip, core::rect<s32> topbar_clip, gui::IGUIFont* font, std::vector<ModCategory*> categories, ColorTheme theme, float dtime);
     void draw_dropdown_options(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme theme, std::vector<ModCategory *> categories);
     void draw_color_picker(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories);
+    void draw_hints(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories, core::rect<s32> clip);
 };
 
 inline float easeInOutCubic(float t) {
