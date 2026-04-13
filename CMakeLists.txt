@@ -371,7 +371,7 @@ if(WIN32)
 
 	if(NOT RUN_IN_PLACE)
 		set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${VERSION_STRING}-nsis")
-		install(FILES "misc/luanti-icon.ico" DESTINATION ".")
+		install(FILES "misc/eclipse-icon.ico" DESTINATION ".")
 		install(FILES "misc/sfx-launcher.nsi" DESTINATION ".")
 		# normalize to 0/1
 		set(DEVELOPMENT_BUILD01 0)
