@@ -9,7 +9,6 @@
 
 #if defined(_WIN32) && __has_include(<filesystem>)
     #include <filesystem>
-    namespace fs = std::filesystem;
     #define USE_STD_FILESYSTEM
 #else
     #include <dirent.h>
@@ -172,7 +171,7 @@ void ThemeManager::LoadThemes(const std::string &folderpath) {
 			return;
 
 #ifdef USE_STD_FILESYSTEM
-		for (const auto &entry : fs::directory_iterator(basepath)) {
+		for (const auto &entry : std::filesystem::directory_iterator(basepath)) {
 			if (!entry.is_regular_file() || toLower(entry.path().extension().string()) != ".theme")
 				continue;
 
