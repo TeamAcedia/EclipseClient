@@ -93,7 +93,7 @@ core.mod_categories = {
                 }
             },
             {
-                name = "Sprint Toggle",
+                name = "Toggle Sprint",
                 description = "Toggle sprint without holding the key",
                 icon = "eclipse_icon_placeholder.png",
                 setting_id = "eclipse_sprint_toggle",
