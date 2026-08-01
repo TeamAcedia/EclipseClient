@@ -4,6 +4,7 @@
 
 #include "eclipseMenu.h"
 #include "client/fontengine.h"
+#include "client/hud_elements.h"
 #include <cstdlib>
 
 std::chrono::high_resolution_clock::time_point EclipseMenu::lastTime = std::chrono::high_resolution_clock::now();
@@ -103,6 +104,14 @@ double mapValue(double value, double oldMin, double oldMax, double newMin, doubl
     return newMin + (value - oldMin) * (newMax - newMin) / (oldMax - oldMin);
 }
 
+float snapToGrid(float value, float step)
+{
+    if (step <= 0.0f)
+        return value;
+
+    return std::round(value / step) * step;
+}
+
 double calculateSliderValueFromPosition(const core::rect<s32>& sliderBarRect, const core::position2d<s32>& pointerPosition, double m_min, double m_max, double m_steps)
 {
 
@@ -163,6 +172,12 @@ ColorTheme lerpTheme(const ColorTheme& a, const ColorTheme& b, float t) {
     result.secondary_muted = lerpColor(a.secondary_muted, b.secondary_muted, t);
     result.text = lerpColor(a.text, b.text, t);
     result.text_muted = lerpColor(a.text_muted, b.text_muted, t);
+    result.hud_elem_background = lerpColor(a.hud_elem_background, b.hud_elem_background, t);
+    result.hud_elem_border = lerpColor(a.hud_elem_border, b.hud_elem_border, t);
+    result.hud_elem_text = lerpColor(a.hud_elem_text, b.hud_elem_text, t);
+    result.hud_elem_accent = lerpColor(a.hud_elem_accent, b.hud_elem_accent, t);
+    result.hud_elem_tick_major = lerpColor(a.hud_elem_tick_major, b.hud_elem_tick_major, t);
+    result.hud_elem_tick_minor = lerpColor(a.hud_elem_tick_minor, b.hud_elem_tick_minor, t);
     result.wallpaper = lerpColor(a.wallpaper, b.wallpaper, t);
     return result;
 }
@@ -465,10 +480,27 @@ bool EclipseMenu::OnEvent(const SEvent& event)
 
     GET_CATEGORIES_OR_RETURN_BOOL(categories);
 
+    init_hud_edit_elements();
+
+    auto find_hud_element = [&](const std::string &name) -> HudElementBase* {
+        for (auto &element : m_hud_edit_elements) {
+            if (element && element->getLabel() == name)
+                return element.get();
+        }
+        return nullptr;
+    };
+
     if (event.EventType == EET_KEY_INPUT_EVENT)
     {
         if (event.KeyInput.Key == KEY_ESCAPE && event.KeyInput.PressedDown)
         {
+            if (m_hud_edit_mode) {
+                m_hud_edit_mode = false;
+                m_dragging_hud_element = false;
+                m_resizing_hud_element = false;
+                m_active_hud_element.clear();
+                return true;
+            }
             if (m_selecting_dropdown) {
                 // Close dropdown if open
                 for (auto cat : categories) {
@@ -592,6 +624,103 @@ bool EclipseMenu::OnEvent(const SEvent& event)
     // In OnEvent
     if (event.EventType == EET_MOUSE_INPUT_EVENT) 
     {
+        if (!m_is_main_menu && event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN &&
+                m_edit_hud_button_rect.isPointInside(core::position2d<s32>(event.MouseInput.X, event.MouseInput.Y))) {
+            m_hud_edit_mode = !m_hud_edit_mode;
+            m_dragging_hud_element = false;
+            m_resizing_hud_element = false;
+            m_active_hud_element.clear();
+            return true;
+        }
+
+        if (m_hud_edit_mode) {
+            if (event.MouseInput.Event == EMIE_MOUSE_MOVED) {
+                m_current_mouse_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+
+                if (m_dragging_hud_element || m_resizing_hud_element) {
+                    if (HudElementBase *element = find_hud_element(m_active_hud_element)) {
+                        const std::string &x_key = element->getXKey();
+                        const std::string &y_key = element->getYKey();
+                        const std::string &scale_x_key = element->getScaleXKey();
+                        const std::string &scale_y_key = element->getScaleYKey();
+                        if (m_dragging_hud_element) {
+                            const core::dimension2du screensize = Environment->getVideoDriver()->getScreenSize();
+                            float dx = static_cast<float>(event.MouseInput.X - m_hud_drag_mouse_origin.X);
+                            float dy = static_cast<float>(event.MouseInput.Y - m_hud_drag_mouse_origin.Y);
+                            float nx = m_hud_drag_start_x + (dx / std::max(1u, screensize.Width));
+                            float ny = m_hud_drag_start_y + (dy / std::max(1u, screensize.Height));
+                            constexpr float position_grid = 0.01f;
+                            nx = snapToGrid(std::clamp(nx, 0.0f, 1.0f), position_grid);
+                            ny = snapToGrid(std::clamp(ny, 0.0f, 1.0f), position_grid);
+                            g_settings->setFloat(x_key, std::clamp(nx, 0.0f, 1.0f));
+                            g_settings->setFloat(y_key, std::clamp(ny, 0.0f, 1.0f));
+                        } else if (m_resizing_hud_element) {
+                            float dx = static_cast<float>(event.MouseInput.X - m_hud_drag_mouse_origin.X);
+                            float dy = static_cast<float>(event.MouseInput.Y - m_hud_drag_mouse_origin.Y);
+                            constexpr float scale_grid = 0.05f;
+                            float new_scale_x = m_hud_drag_start_scale_x + (dx / 250.0f);
+                            float new_scale_y = m_hud_drag_start_scale_y + (dy / 250.0f);
+                            new_scale_x = snapToGrid(new_scale_x, scale_grid);
+                            new_scale_y = snapToGrid(new_scale_y, scale_grid);
+                            g_settings->setFloat(scale_x_key, std::clamp(new_scale_x, 0.5f, 3.0f));
+                            g_settings->setFloat(scale_y_key, std::clamp(new_scale_y, 0.5f, 3.0f));
+                        }
+                    }
+                    return true;
+                }
+            }
+
+            if (event.MouseInput.Event == EMIE_LMOUSE_PRESSED_DOWN) {
+                core::position2d<s32> mouse_pos(event.MouseInput.X, event.MouseInput.Y);
+                auto begin_resize_drag = [&](size_t i) {
+                    m_resizing_hud_element = true;
+                    m_dragging_hud_element = false;
+                    m_active_hud_element = m_hud_edit_element_names[i];
+                    m_hud_drag_mouse_origin = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+
+                    if (HudElementBase *element = find_hud_element(m_active_hud_element)) {
+                        m_hud_drag_start_scale_x = std::clamp(g_settings->getFloat(element->getScaleXKey()), 0.5f, 3.0f);
+                        m_hud_drag_start_scale_y = std::clamp(g_settings->getFloat(element->getScaleYKey()), 0.5f, 3.0f);
+                    }
+                    return true;
+                };
+
+                for (size_t i = 0; i < m_hud_edit_resize_boxes.size(); ++i) {
+                    if (m_hud_edit_resize_boxes[i].isPointInside(mouse_pos))
+                        return begin_resize_drag(i);
+                }
+
+                for (size_t i = 0; i < m_hud_edit_element_boxes.size(); ++i) {
+                    if (!m_hud_edit_element_boxes[i].isPointInside(mouse_pos))
+                        continue;
+
+                    m_dragging_hud_element = true;
+                    m_resizing_hud_element = false;
+                    m_active_hud_element = m_hud_edit_element_names[i];
+                    m_hud_drag_mouse_origin = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
+
+                    if (HudElementBase *element = find_hud_element(m_active_hud_element)) {
+                        m_hud_drag_start_x = std::clamp(g_settings->getFloat(element->getXKey()), 0.0f, 1.0f);
+                        m_hud_drag_start_y = std::clamp(g_settings->getFloat(element->getYKey()), 0.0f, 1.0f);
+                    }
+                    return true;
+                }
+
+                return true;
+            }
+
+            if (event.MouseInput.Event == EMIE_LMOUSE_LEFT_UP) {
+                if (m_dragging_hud_element || m_resizing_hud_element) {
+                    m_dragging_hud_element = false;
+                    m_resizing_hud_element = false;
+                    m_active_hud_element.clear();
+                    return true;
+                }
+
+                return true;
+            }
+        }
+
         if (event.MouseInput.Event == EMIE_MOUSE_MOVED) 
         {
             m_current_mouse_pos = core::vector2d<s32>(event.MouseInput.X, event.MouseInput.Y);
@@ -1105,7 +1234,7 @@ void drawRoundedRectShadow(
     s32 shadow_offset_y = 4,   // move shadow down
     s32 shadow_layers = 6,     // more layers = softer
     float start_opacity = 0.3f, // starting opacity
-    core::rect<s32> *clip = 0
+    const core::rect<s32> *clip = 0
 ) {
     // Draw shadow layers
     for (s32 i = 0; i < shadow_layers; ++i) {
@@ -1227,6 +1356,14 @@ double EclipseMenu::getAnimation(std::string id)
         }
     }
 	return 0.0;
+}
+
+void EclipseMenu::init_hud_edit_elements()
+{
+    if (!m_hud_edit_elements.empty())
+        return;
+
+    m_hud_edit_elements = create_default_hud_elements();
 }
 
 void EclipseMenu::draw_categories_bar(video::IVideoDriver* driver, core::rect<s32> clip, gui::IGUIFont* font, ModCategory* current_category, ColorTheme theme, std::vector<ModCategory*> categories, float dtime)
@@ -2148,7 +2285,7 @@ void EclipseMenu::draw_module_settings(video::IVideoDriver *driver, core::rect<s
 
                 bool is_sliding = false;
                 if (m_sliding_slider) {
-                    if (m_sliding_slider_index >= 0 && m_sliding_slider_index < m_settings_slider_names.size()) {
+                    if (m_sliding_slider_index < m_settings_slider_names.size()) {
                         if (m_settings_slider_names[m_sliding_slider_index] == setting->m_name) {
                             is_sliding = true;
                         }
@@ -2674,6 +2811,9 @@ void EclipseMenu::draw_color_picker(video::IVideoDriver* driver, gui::IGUIFont* 
 
 void EclipseMenu::draw_hints(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories, core::rect<s32> clip)
 {
+    if (m_selecting_dropdown)
+        return;
+
     std::string current_category_name = g_settings->get("eclipse.current_category");
     std::string current_module_name = g_settings->get("eclipse.current_module");
     s32 hint_width = applyScalingFactorS32(250);
@@ -2844,6 +2984,93 @@ void EclipseMenu::draw_hints(video::IVideoDriver* driver, gui::IGUIFont* font, C
     
 }
 
+void EclipseMenu::draw_hud_editor_overlay(video::IVideoDriver *driver, gui::IGUIFont *font, ColorTheme theme, const core::dimension2du &screensize)
+{
+    m_hud_edit_element_names.clear();
+    m_hud_edit_element_boxes.clear();
+    m_hud_edit_resize_boxes.clear();
+
+    gui::IGUIFont *hud_font = g_fontengine->getFont();
+    if (!m_hud_edit_mode || !hud_font)
+        return;
+
+    init_hud_edit_elements();
+
+    const s32 label_height = 26;
+    core::rect<s32> label_rect(
+        20,
+        20,
+        static_cast<s32>(screensize.Width) - 20,
+        20 + label_height
+    );
+    hud_font->draw(utf8_to_wide("HUD Edit Mode: Drag boxes to move, drag bottom-right corner to resize").c_str(), label_rect, theme.hud_elem_text, false, true, nullptr);
+
+    float preview_fps = 0.0f;
+    if (m_device && m_device->getTimer()) {
+        static u32 last_ms = 0;
+        static float smoothed_fps = 60.0f;
+        u32 now_ms = m_device->getTimer()->getTime();
+        if (last_ms != 0 && now_ms > last_ms) {
+            float frame_ms = static_cast<float>(now_ms - last_ms);
+            float instant = 1000.0f / std::max(1.0f, frame_ms);
+            smoothed_fps = (smoothed_fps * 0.9f) + (instant * 0.1f);
+        }
+        last_ms = now_ms;
+        preview_fps = smoothed_fps;
+    }
+
+    HudElementRenderContext hud_ctx;
+    hud_ctx.driver = driver;
+    hud_ctx.font = hud_font;
+    hud_ctx.screensize = screensize;
+    hud_ctx.client = m_client;
+    hud_ctx.theme = &theme;
+    hud_ctx.smoothed_fps = preview_fps;
+
+    for (auto &element : m_hud_edit_elements) {
+        if (!element || !element->isEnabled())
+            continue;
+
+        if (!element->render(hud_ctx))
+            continue;
+
+        const std::string &x_key = element->getXKey();
+        const std::string &y_key = element->getYKey();
+        f32 clamped_nx = snapToGrid(std::clamp(g_settings->getFloat(x_key), 0.0f, 1.0f), 0.01f);
+        f32 clamped_ny = snapToGrid(std::clamp(g_settings->getFloat(y_key), 0.0f, 1.0f), 0.01f);
+        g_settings->setFloat(x_key, clamped_nx);
+        g_settings->setFloat(y_key, clamped_ny);
+
+        core::rect<s32> box = element->getLastRect();
+        f32 scale_x = std::clamp(g_settings->getFloat(element->getScaleXKey()), 0.5f, 3.0f);
+        f32 scale_y = std::clamp(g_settings->getFloat(element->getScaleYKey()), 0.5f, 3.0f);
+        f32 scale = std::sqrt(std::max(0.01f, scale_x * scale_y));
+
+        driver->draw2DRoundedRectangleOutline(
+            box,
+            element->getLabel() == m_active_hud_element ? theme.hud_elem_accent : theme.hud_elem_border,
+            std::max<s32>(1, static_cast<s32>(std::round(2.0f * scale))),
+            std::max<s32>(4, static_cast<s32>(std::round(6.0f * scale))),
+            std::max<s32>(4, static_cast<s32>(std::round(6.0f * scale))),
+            std::max<s32>(4, static_cast<s32>(std::round(6.0f * scale))),
+            std::max<s32>(4, static_cast<s32>(std::round(6.0f * scale)))
+        );
+
+        s32 handle_size = std::max<s32>(8, static_cast<s32>(std::round(10.0f * scale)));
+        core::rect<s32> handle(
+            box.LowerRightCorner.X - handle_size,
+            box.LowerRightCorner.Y - handle_size,
+            box.LowerRightCorner.X,
+            box.LowerRightCorner.Y
+        );
+        driver->draw2DRectangle(theme.hud_elem_accent, handle, nullptr);
+
+        m_hud_edit_element_names.push_back(element->getLabel());
+        m_hud_edit_element_boxes.push_back(box);
+        m_hud_edit_resize_boxes.push_back(handle);
+    }
+}
+
 void EclipseMenu::draw() 
 {
     GET_CATEGORIES_OR_RETURN(categories);
@@ -2907,6 +3134,58 @@ void EclipseMenu::draw()
     if (opening_animation_progress != 0) { // Menu is open
         ColorTheme theme = current_theme.withAlpha(eased_opening_progress);
         calculateActiveScaling(screensize.Width, screensize.Height);
+
+        if (m_is_main_menu) {
+            m_hud_edit_mode = false;
+        } else {
+            s32 button_width = applyScalingFactorS32(140);
+            s32 button_height = applyScalingFactorS32(36);
+            m_edit_hud_button_rect = core::rect<s32>(
+                static_cast<s32>(screensize.Width) - button_width - applyScalingFactorS32(24),
+                static_cast<s32>(screensize.Height) - button_height - applyScalingFactorS32(24),
+                static_cast<s32>(screensize.Width) - applyScalingFactorS32(24),
+                static_cast<s32>(screensize.Height) - applyScalingFactorS32(24)
+            );
+
+            drawRoundedRectShadow(
+                driver,
+                m_edit_hud_button_rect,
+                m_hud_edit_mode ? theme.enabled : theme.secondary,
+                applyScalingFactorS32(8),
+                applyScalingFactorS32(8),
+                applyScalingFactorS32(8),
+                applyScalingFactorS32(8),
+                2,
+                4,
+                0.1f,
+                nullptr
+            );
+
+            setAnimationTarget("edit_hud_button_hover", m_edit_hud_button_rect.isPointInside(m_current_mouse_pos) ? 1.0 : 0.0);
+            u32 edit_hud_hover_alpha = (u32)(easeInOutCubic(getAnimation("edit_hud_button_hover")) * 96);
+            video::SColor edit_hud_hover = theme.secondary_muted;
+            edit_hud_hover.setAlpha(edit_hud_hover_alpha);
+            driver->draw2DRoundedRectangle(
+                m_edit_hud_button_rect,
+                edit_hud_hover,
+                applyScalingFactorS32(8),
+                nullptr
+            );
+
+            font->draw(
+                utf8_to_wide(m_hud_edit_mode ? "Done" : "Edit Hud").c_str(),
+                m_edit_hud_button_rect,
+                theme.text,
+                true,
+                true,
+                nullptr
+            );
+
+            if (m_hud_edit_mode) {
+                draw_hud_editor_overlay(driver, font, theme, screensize);
+                return;
+            }
+        }
 
         const core::dimension2di menusize(applyScalingFactorS32(1200), applyScalingFactorS32(static_cast<s32>(700 * eased_opening_progress)));
 

@@ -1,0 +1,29 @@
+[theme]
+name = Emberglass
+
+wallpaper         = hsl(18, 28%, 12%)
+
+background-top    = hsl(18, 26%, 20%)
+background        = hsl(18, 24%, 15%)
+background-bottom = hsl(18, 24%, 10%)
+
+border            = hsl(20, 28%, 32%)
+
+text              = hsl(35, 25%, 94%)
+text-muted        = hsl(26, 12%, 62%)
+
+primary           = hsl(20, 34%, 28%)
+primary-muted     = hsl(20, 24%, 18%)
+
+secondary         = hsl(34, 45%, 34%)
+secondary-muted   = hsl(28, 28%, 18%)
+
+enabled           = hsl(135, 70%, 42%)
+disabled          = hsl(0, 75%, 46%)
+
+hud-elem-background = hsla(20, 24%, 8%, 0.74)
+hud-elem-border = hsla(28, 32%, 72%, 0.92)
+hud-elem-text = hsl(35, 24%, 95%)
+hud-elem-accent = hsl(22, 95%, 60%)
+hud-elem-tick-major = hsl(40, 34%, 90%)
+hud-elem-tick-minor = hsla(32, 25%, 76%, 0.72)

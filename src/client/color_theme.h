@@ -28,6 +28,13 @@ public:
 	video::SColor enabled;
 	video::SColor disabled;
 
+	video::SColor hud_elem_background;
+	video::SColor hud_elem_border;
+	video::SColor hud_elem_text;
+	video::SColor hud_elem_accent;
+	video::SColor hud_elem_tick_major;
+	video::SColor hud_elem_tick_minor;
+
 	ColorTheme() = default;
 	explicit ColorTheme(const std::string &data);
 

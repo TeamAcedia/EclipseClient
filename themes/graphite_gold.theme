@@ -1,0 +1,29 @@
+[theme]
+name = Graphite Gold
+
+wallpaper         = hsl(35, 8%, 11%)
+
+background-top    = hsl(30, 7%, 20%)
+background        = hsl(30, 7%, 15%)
+background-bottom = hsl(30, 7%, 10%)
+
+border            = hsl(36, 16%, 32%)
+
+text              = hsl(44, 30%, 93%)
+text-muted        = hsl(42, 10%, 60%)
+
+primary           = hsl(33, 16%, 26%)
+primary-muted     = hsl(30, 10%, 16%)
+
+secondary         = hsl(44, 34%, 34%)
+secondary-muted   = hsl(38, 16%, 18%)
+
+enabled           = hsl(138, 62%, 40%)
+disabled          = hsl(2, 68%, 46%)
+
+hud-elem-background = hsla(30, 8%, 8%, 0.76)
+hud-elem-border = hsla(44, 28%, 72%, 0.9)
+hud-elem-text = hsl(45, 34%, 94%)
+hud-elem-accent = hsl(42, 88%, 58%)
+hud-elem-tick-major = hsl(44, 28%, 90%)
+hud-elem-tick-minor = hsla(42, 18%, 72%, 0.72)

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 #include <IGUIFont.h>
 #include <SMaterial.h>
 #include <CMeshBuffer.h>
@@ -19,6 +20,7 @@ class Inventory;
 class InventoryList;
 class LocalPlayer;
 struct ItemStack;
+class HudElementBase;
 
 namespace scene
 {
@@ -115,6 +117,8 @@ private:
 
 	void drawCompassRotate(HudElement *e, video::ITexture *texture,
 			const core::rect<s32> &rect, int way);
+	void drawEclipseHudElements();
+	void initEclipseHudElements();
 
 	Client *client = nullptr;
 	video::IVideoDriver *driver = nullptr;
@@ -143,6 +147,9 @@ private:
 
 	video::SMaterial m_selection_material;
 	video::SMaterial m_block_bounds_material;
+	u64 m_last_fps_sample_ms = 0;
+	f32 m_fps_smoothed = 0.0f;
+	std::vector<std::unique_ptr<HudElementBase>> m_eclipse_hud_elements;
 
 	irr_ptr<scene::SMeshBuffer> m_rotation_mesh_buffer;
 

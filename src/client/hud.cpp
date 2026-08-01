@@ -29,6 +29,10 @@
 #include <ICameraSceneNode.h>
 #include <IMesh.h>
 #include "gui/eclipseMenu.h"
+#include "porting.h"
+#include "filesys.h"
+#include "client/color_theme.h"
+#include "client/hud_elements.h"
 
 #define OBJECT_CROSSHAIR_LINE_SIZE 8
 #define CROSSHAIR_LINE_SIZE 10
@@ -36,6 +40,43 @@
 static void setting_changed_callback(const std::string &name, void *data)
 {
 	static_cast<Hud*>(data)->readScalingSetting();
+}
+
+static const ColorTheme &get_hud_theme()
+{
+	static ThemeManager manager;
+	static bool loaded = false;
+	static std::string last_theme_name;
+	static ColorTheme theme;
+
+	if (!loaded) {
+		manager.LoadThemes(porting::path_user + DIR_DELIM + "themes");
+		loaded = true;
+	}
+
+	std::string current_theme = g_settings->get("eclipse_appearance.theme");
+	if (current_theme.empty())
+		current_theme = "Default";
+
+	if (current_theme != last_theme_name) {
+		theme = manager.GetThemeByName(current_theme);
+		last_theme_name = current_theme;
+
+		if (theme.hud_elem_background.getAlpha() == 0)
+			theme.hud_elem_background = video::SColor(180, 15, 15, 15);
+		if (theme.hud_elem_border.getAlpha() == 0)
+			theme.hud_elem_border = theme.text_muted;
+		if (theme.hud_elem_text.getAlpha() == 0)
+			theme.hud_elem_text = theme.text;
+		if (theme.hud_elem_accent.getAlpha() == 0)
+			theme.hud_elem_accent = theme.enabled;
+		if (theme.hud_elem_tick_major.getAlpha() == 0)
+			theme.hud_elem_tick_major = theme.hud_elem_text;
+		if (theme.hud_elem_tick_minor.getAlpha() == 0)
+			theme.hud_elem_tick_minor = theme.text_muted;
+	}
+
+	return theme;
 }
 
 Hud::Hud(Client *client, LocalPlayer *player,
@@ -134,6 +175,8 @@ Hud::Hud(Client *client, LocalPlayer *player,
 
 	b->getMaterial().MaterialType = video::EMT_TRANSPARENT_ALPHA_CHANNEL;
 	b->setHardwareMappingHint(scene::EHM_STATIC);
+
+	initEclipseHudElements();
 }
 
 void Hud::readScalingSetting()
@@ -577,6 +620,52 @@ void Hud::drawLuaElements(const v3s16 &camera_offset)
 				infostream << "Hud::drawLuaElements: ignoring drawform " << e->type
 					<< " due to unrecognized type" << std::endl;
 		}
+	}
+
+	drawEclipseHudElements();
+}
+
+void Hud::initEclipseHudElements()
+{
+	if (!m_eclipse_hud_elements.empty())
+		return;
+
+	m_eclipse_hud_elements = create_default_hud_elements();
+}
+
+void Hud::drawEclipseHudElements()
+{
+	if (m_eclipse_hud_elements.empty())
+		initEclipseHudElements();
+
+	u64 now_ms = porting::getTimeMs();
+	if (m_last_fps_sample_ms != 0 && now_ms > m_last_fps_sample_ms) {
+		f32 frame_ms = static_cast<f32>(now_ms - m_last_fps_sample_ms);
+		f32 instant_fps = 1000.0f / std::max(1.0f, frame_ms);
+		if (m_fps_smoothed <= 0.0f)
+			m_fps_smoothed = instant_fps;
+		else
+			m_fps_smoothed = (m_fps_smoothed * 0.9f) + (instant_fps * 0.1f);
+	}
+	m_last_fps_sample_ms = now_ms;
+
+	gui::IGUIFont *font = g_fontengine->getFont();
+	if (!font)
+		return;
+
+	const ColorTheme &theme = get_hud_theme();
+	HudElementRenderContext ctx;
+	ctx.driver = driver;
+	ctx.font = font;
+	ctx.screensize = m_screensize;
+	ctx.client = client;
+	ctx.theme = &theme;
+	ctx.smoothed_fps = m_fps_smoothed;
+
+	for (auto &element : m_eclipse_hud_elements) {
+		if (!element->isEnabled())
+			continue;
+		element->render(ctx);
 	}
 }
 

@@ -1,0 +1,29 @@
+[theme]
+name = Frostbyte
+
+wallpaper         = hsl(212, 26%, 12%)
+
+background-top    = hsl(210, 22%, 21%)
+background        = hsl(212, 22%, 16%)
+background-bottom = hsl(214, 22%, 11%)
+
+border            = hsl(206, 22%, 34%)
+
+text              = hsl(200, 26%, 95%)
+text-muted        = hsl(206, 12%, 64%)
+
+primary           = hsl(212, 18%, 28%)
+primary-muted     = hsl(212, 18%, 18%)
+
+secondary         = hsl(196, 34%, 36%)
+secondary-muted   = hsl(202, 22%, 18%)
+
+enabled           = hsl(145, 62%, 43%)
+disabled          = hsl(2, 70%, 48%)
+
+hud-elem-background = hsla(214, 20%, 9%, 0.74)
+hud-elem-border = hsla(198, 30%, 76%, 0.9)
+hud-elem-text = hsl(200, 28%, 96%)
+hud-elem-accent = hsl(196, 95%, 60%)
+hud-elem-tick-major = hsl(198, 26%, 90%)
+hud-elem-tick-minor = hsla(202, 18%, 75%, 0.72)

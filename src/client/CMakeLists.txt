@@ -57,6 +57,7 @@ set(client_SRCS
 	${CMAKE_CURRENT_SOURCE_DIR}/game_formspec.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/guiscalingfilter.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/hud.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/hud_elements.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/imagefilters.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/inputhandler.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/item_visuals_manager.cpp

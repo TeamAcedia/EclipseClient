@@ -47,6 +47,7 @@
 #include "util/quicktune_shortcutter.h"
 #include "version.h"
 #include "script/scripting_client.h"
+#include "script/cpp_api/s_eclipse_mods.h"
 #include "hud.h"
 #include <AnimatedMeshSceneNode.h>
 #include <ICameraSceneNode.h>
@@ -2057,6 +2058,8 @@ bool Game::getTogglableKeyState(GameKeyType key, bool toggling_enabled, bool pre
 void Game::updatePlayerControl(const CameraOrientation &cam)
 {
 	LocalPlayer *player = client->getEnv().getLocalPlayer();
+	const bool sprint_toggle_enabled = GetSettingRestrictedValue("eclipse_sprint_toggle");
+	const bool aux1_toggle_enabled = m_cache_toggle_aux1_key || sprint_toggle_enabled;
 
 	// In free move (fly), the "toggle_sneak_key" setting would prevent precise
 	// up/down movements. Hence, enable the feature only during 'normal' movement.
@@ -2071,7 +2074,7 @@ void Game::updatePlayerControl(const CameraOrientation &cam)
 		isKeyDown(KeyType::LEFT),
 		isKeyDown(KeyType::RIGHT),
 		isKeyDown(KeyType::JUMP) || player->getAutojump(),
-		getTogglableKeyState(KeyType::AUX1,  m_cache_toggle_aux1_key, player->control.aux1),
+		getTogglableKeyState(KeyType::AUX1,  aux1_toggle_enabled, player->control.aux1),
 		getTogglableKeyState(KeyType::SNEAK, allow_sneak_toggle,      player->control.sneak),
 		isKeyDown(KeyType::ZOOM),
 		isKeyDown(KeyType::DIG),

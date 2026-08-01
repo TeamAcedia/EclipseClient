@@ -62,7 +62,7 @@ core.mod_categories = {
                         name = "Theme",
                         description = "Select Theme",
                         type = "dropdown",
-                        options = {"Default", "Default Light"},
+                        options = {"Default", "Default Light", "Emberglass", "Seafoam Night", "Graphite Gold", "Frostbyte"},
                         default = "Default",
                         setting_id = "eclipse_appearance.theme"
                     },
@@ -91,6 +91,13 @@ core.mod_categories = {
                         setting_id = "eclipse_better_debug.text_color"
                     }
                 }
+            },
+            {
+                name = "Sprint Toggle",
+                description = "Toggle sprint without holding the key",
+                icon = "eclipse_icon_placeholder.png",
+                setting_id = "eclipse_sprint_toggle",
+                default = false
             }
         }
     },
@@ -302,6 +309,34 @@ core.mod_categories = {
                             setting_id = "eclipse_crosshair.object_thickness"
                         }
                     }
+                },
+                {
+                    name = "FPS",
+                    description = "Display current FPS as a movable HUD widget",
+                    icon = "eclipse_icon_placeholder.png",
+                    setting_id = "eclipse_hud_fps",
+                    default = false
+                },
+                {
+                    name = "Ram Usage",
+                    description = "Display current memory usage as a movable HUD widget",
+                    icon = "eclipse_icon_placeholder.png",
+                    setting_id = "eclipse_hud_memory",
+                    default = false
+                },
+                {
+                    name = "Ping",
+                    description = "Display current ping as a movable HUD widget",
+                    icon = "eclipse_icon_placeholder.png",
+                    setting_id = "eclipse_hud_ping",
+                    default = false
+                },
+                {
+                    name = "Compass",
+                    description = "Display current facing direction as a movable HUD widget",
+                    icon = "eclipse_icon_placeholder.png",
+                    setting_id = "eclipse_hud_compass",
+                    default = false
                 }
         }
     }

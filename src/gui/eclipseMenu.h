@@ -7,6 +7,7 @@
 #include <irrlicht.h>
 #include <iostream>
 #include <vector>
+#include <memory>
 #include <codecvt> 
 #include <locale> 
 #include <IGUIEditBox.h>
@@ -67,6 +68,8 @@ struct TextboxData {
     std::string parent_category_name;
     std::string setting_id;
 };
+
+class HudElementBase;
 
 class EclipseMenu: public IGUIElement
 {
@@ -184,6 +187,15 @@ private:
     bool m_picking_color = false;
     ModSetting* m_picking_color_setting = nullptr;
     core::rect<s32> m_color_picker_exit_box;
+    bool m_hud_edit_mode = false;
+    bool m_dragging_hud_element = false;
+    bool m_resizing_hud_element = false;
+    std::string m_active_hud_element;
+    core::vector2d<s32> m_hud_drag_mouse_origin;
+    float m_hud_drag_start_x = 0.0f;
+    float m_hud_drag_start_y = 0.0f;
+    float m_hud_drag_start_scale_x = 1.0f;
+    float m_hud_drag_start_scale_y = 1.0f;
     
     std::vector<core::rect<s32>> m_mods_boxes;
     std::vector<core::rect<s32>> m_mods_toggle_boxes;
@@ -203,6 +215,11 @@ private:
 
     std::vector<core::rect<s32>> m_settings_color_boxes;
     std::vector<std::string> m_settings_color_names;
+    core::rect<s32> m_edit_hud_button_rect;
+    std::vector<std::string> m_hud_edit_element_names;
+    std::vector<core::rect<s32>> m_hud_edit_element_boxes;
+    std::vector<core::rect<s32>> m_hud_edit_resize_boxes;
+    std::vector<std::unique_ptr<HudElementBase>> m_hud_edit_elements;
 
     std::unordered_map<std::string, TextboxData> m_settings_textboxes_map;
 
@@ -216,6 +233,8 @@ private:
     void draw_dropdown_options(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme theme, std::vector<ModCategory *> categories);
     void draw_color_picker(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories);
     void draw_hints(video::IVideoDriver* driver, gui::IGUIFont* font, ColorTheme current_theme, std::vector<ModCategory *> categories, core::rect<s32> clip);
+    void draw_hud_editor_overlay(video::IVideoDriver *driver, gui::IGUIFont *font, ColorTheme theme, const core::dimension2du &screensize);
+    void init_hud_edit_elements();
 };
 
 inline float easeInOutCubic(float t) {

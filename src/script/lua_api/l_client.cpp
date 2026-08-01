@@ -22,8 +22,11 @@
 #include "nodedef.h"
 #include "l_clientobject.h"
 #include "filesys.h"
+#include "porting.h"
 #include <sstream>
 #include <string>
+#include <vector>
+#include <fstream>
 #include <cstdint>
 #include <iostream>
 
@@ -400,14 +403,22 @@ int ModApiClient::l_get_objects_inside_radius(lua_State *L)
 int ModApiClient::l_load_media(lua_State *L)
 {
 	const char *filename = luaL_checkstring(L, 1);
+	std::vector<std::string> search_paths = {
+		porting::path_user + DIR_DELIM + "textures" + DIR_DELIM + "custom_assets" + DIR_DELIM + filename,
+		porting::path_share + DIR_DELIM + "textures" + DIR_DELIM + "custom_assets" + DIR_DELIM + filename,
+	};
 
-	std::string fullpath = porting::path_user + DIR_DELIM + "textures" + DIR_DELIM + "custom_assets" +  DIR_DELIM + filename;
-	
-	std::ifstream f(fullpath, std::ios::binary);
+	std::ifstream f;
+	for (const auto &candidate : search_paths) {
+		f.open(candidate, std::ios::binary);
+		if (f.good())
+			break;
+		f.close();
+	}
 
 	if (!f.good()) {
 		lua_pushboolean(L, false);
-		lua_pushstring(L, "File not found");
+		lua_pushstring(L, "File not found in user or shared custom_assets");
 		return 2;
 	}
 

@@ -1,0 +1,29 @@
+[theme]
+name = Seafoam Night
+
+wallpaper         = hsl(188, 26%, 9%)
+
+background-top    = hsl(190, 20%, 18%)
+background        = hsl(190, 20%, 13%)
+background-bottom = hsl(190, 20%, 9%)
+
+border            = hsl(184, 18%, 27%)
+
+text              = hsl(188, 30%, 95%)
+text-muted        = hsl(188, 14%, 62%)
+
+primary           = hsl(190, 24%, 24%)
+primary-muted     = hsl(190, 22%, 15%)
+
+secondary         = hsl(168, 28%, 33%)
+secondary-muted   = hsl(176, 22%, 17%)
+
+enabled           = hsl(142, 62%, 44%)
+disabled          = hsl(2, 68%, 47%)
+
+hud-elem-background = hsla(188, 22%, 7%, 0.72)
+hud-elem-border = hsla(176, 28%, 70%, 0.9)
+hud-elem-text = hsl(186, 30%, 96%)
+hud-elem-accent = hsl(168, 88%, 52%)
+hud-elem-tick-major = hsl(184, 28%, 90%)
+hud-elem-tick-minor = hsla(182, 20%, 74%, 0.72)

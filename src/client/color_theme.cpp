@@ -1,4 +1,6 @@
 #include "color_theme.h"
+#include "porting.h"
+#include "filesys.h"
 #include <sstream>
 #include <fstream>
 #include <algorithm>
@@ -95,6 +97,13 @@ ColorTheme ColorTheme::withAlpha(float alpha) const {
     copy.enabled.setAlpha(static_cast<u8>(copy.enabled.getAlpha() * alpha));
     copy.disabled.setAlpha(static_cast<u8>(copy.disabled.getAlpha() * alpha));
 
+	copy.hud_elem_background.setAlpha(static_cast<u8>(copy.hud_elem_background.getAlpha() * alpha));
+	copy.hud_elem_border.setAlpha(static_cast<u8>(copy.hud_elem_border.getAlpha() * alpha));
+	copy.hud_elem_text.setAlpha(static_cast<u8>(copy.hud_elem_text.getAlpha() * alpha));
+	copy.hud_elem_accent.setAlpha(static_cast<u8>(copy.hud_elem_accent.getAlpha() * alpha));
+	copy.hud_elem_tick_major.setAlpha(static_cast<u8>(copy.hud_elem_tick_major.getAlpha() * alpha));
+	copy.hud_elem_tick_minor.setAlpha(static_cast<u8>(copy.hud_elem_tick_minor.getAlpha() * alpha));
+
     return copy;
 }
 
@@ -116,6 +125,12 @@ ColorTheme::ColorTheme(const std::string &data) {
 		{"secondary-muted",   &secondary_muted},
 		{"enabled",         &enabled},
 		{"disabled",   &disabled},
+		{"hud-elem-background", &hud_elem_background},
+		{"hud-elem-border", &hud_elem_border},
+		{"hud-elem-text", &hud_elem_text},
+		{"hud-elem-accent", &hud_elem_accent},
+		{"hud-elem-tick-major", &hud_elem_tick_major},
+		{"hud-elem-tick-minor", &hud_elem_tick_minor},
 	};
 
 	while (std::getline(stream, line)) {
@@ -139,55 +154,79 @@ ColorTheme::ColorTheme(const std::string &data) {
 }
 
 void ThemeManager::LoadThemes(const std::string &folderpath) {
-    themes.clear();
+	themes.clear();
+
+	auto add_or_replace = [this](const ColorTheme &theme) {
+		std::string incoming = toLower(theme.name);
+		for (auto &existing : themes) {
+			if (toLower(existing.name) == incoming) {
+				existing = theme;
+				return;
+			}
+		}
+		themes.push_back(theme);
+	};
+
+	auto load_from_folder = [&](const std::string &basepath) {
+		if (basepath.empty())
+			return;
 
 #ifdef USE_STD_FILESYSTEM
-    for (const auto &entry : fs::directory_iterator(folderpath)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".theme")
-            continue;
+		for (const auto &entry : fs::directory_iterator(basepath)) {
+			if (!entry.is_regular_file() || toLower(entry.path().extension().string()) != ".theme")
+				continue;
 
-        std::ifstream file(entry.path());
-        if (!file) continue;
+			std::ifstream file(entry.path());
+			if (!file)
+				continue;
 
-        std::ostringstream ss;
-        ss << file.rdbuf();
-        std::string content = ss.str();
+			std::ostringstream ss;
+			ss << file.rdbuf();
 
-        ColorTheme theme(content);
-        if (!theme.name.empty())
-            themes.push_back(theme);
-    }
+			ColorTheme theme(ss.str());
+			if (!theme.name.empty())
+				add_or_replace(theme);
+		}
 #else
-    // POSIX fallback for Linux/macOS (works on old macOS versions)
-    DIR *dir = opendir(folderpath.c_str());
-    if (!dir) return;
+		DIR *dir = opendir(basepath.c_str());
+		if (!dir)
+			return;
 
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        std::string filename = entry->d_name;
-        if (filename == "." || filename == "..") continue;
-        if (filename.size() < 6 || filename.substr(filename.size() - 6) != ".theme") continue;
+		struct dirent *entry;
+		while ((entry = readdir(dir)) != nullptr) {
+			std::string filename = entry->d_name;
+			if (filename == "." || filename == "..")
+				continue;
+			if (filename.size() < 6 || toLower(filename.substr(filename.size() - 6)) != ".theme")
+				continue;
 
-        std::string fullpath = folderpath + "/" + filename;
+			std::string fullpath = basepath + DIR_DELIM + filename;
 
-        struct stat st;
-        if (stat(fullpath.c_str(), &st) != 0 || !S_ISREG(st.st_mode))
-            continue;
+			struct stat st;
+			if (stat(fullpath.c_str(), &st) != 0 || !S_ISREG(st.st_mode))
+				continue;
 
-        std::ifstream file(fullpath);
-        if (!file) continue;
+			std::ifstream file(fullpath);
+			if (!file)
+				continue;
 
-        std::ostringstream ss;
-        ss << file.rdbuf();
-        std::string content = ss.str();
+			std::ostringstream ss;
+			ss << file.rdbuf();
 
-        ColorTheme theme(content);
-        if (!theme.name.empty())
-            themes.push_back(theme);
-    }
+			ColorTheme theme(ss.str());
+			if (!theme.name.empty())
+				add_or_replace(theme);
+		}
 
-    closedir(dir);
+		closedir(dir);
 #endif
+	};
+
+	const std::string shared_theme_path = porting::path_share + DIR_DELIM + "themes";
+	load_from_folder(shared_theme_path);
+
+	if (folderpath != shared_theme_path)
+		load_from_folder(folderpath);
 }
 
 std::vector<std::string> ThemeManager::GetThemes() const {
@@ -200,8 +239,22 @@ std::vector<std::string> ThemeManager::GetThemes() const {
 ColorTheme ThemeManager::GetThemeByName(const std::string &name) const {
 	std::string target = toLower(name);
 	for (const auto &theme : themes) {
-		if (toLower(theme.name) == target)
-			return theme;
+		if (toLower(theme.name) == target) {
+			ColorTheme copy = theme;
+			if (copy.hud_elem_background.getAlpha() == 0)
+				copy.hud_elem_background = video::SColor(180, 15, 15, 15);
+			if (copy.hud_elem_border.getAlpha() == 0)
+				copy.hud_elem_border = copy.text_muted;
+			if (copy.hud_elem_text.getAlpha() == 0)
+				copy.hud_elem_text = copy.text;
+			if (copy.hud_elem_accent.getAlpha() == 0)
+				copy.hud_elem_accent = copy.enabled;
+			if (copy.hud_elem_tick_major.getAlpha() == 0)
+				copy.hud_elem_tick_major = copy.hud_elem_text;
+			if (copy.hud_elem_tick_minor.getAlpha() == 0)
+				copy.hud_elem_tick_minor = copy.text_muted;
+			return copy;
+		}
 	}
 
 	// Return a default theme with all black colors and white text
@@ -210,5 +263,11 @@ ColorTheme ThemeManager::GetThemeByName(const std::string &name) const {
 	fallback.background_top = fallback.background = fallback.background_bottom =
 	fallback.border = fallback.primary = fallback.primary_muted = fallback.secondary = fallback.secondary_muted = fallback.disabled = video::SColor(255, 0, 0, 0);
 	fallback.text = fallback.text_muted = fallback.enabled = video::SColor(255, 255, 255, 255);
+	fallback.hud_elem_background = video::SColor(180, 15, 15, 15);
+	fallback.hud_elem_border = video::SColor(220, 230, 230, 230);
+	fallback.hud_elem_text = video::SColor(255, 255, 255, 255);
+	fallback.hud_elem_accent = video::SColor(255, 120, 200, 255);
+	fallback.hud_elem_tick_major = video::SColor(255, 220, 220, 220);
+	fallback.hud_elem_tick_minor = video::SColor(180, 200, 200, 200);
 	return fallback;
 }

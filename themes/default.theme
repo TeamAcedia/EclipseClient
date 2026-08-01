@@ -20,3 +20,10 @@ secondary-muted   = hsl(220, 13%, 15%)
 
 enabled           = hsl(130, 100%, 37%)
 disabled          = hsl(0, 100%, 37%)
+
+hud-elem-background = hsla(220, 15%, 8%, 0.70)
+hud-elem-border = hsla(220, 10%, 65%, 0.90)
+hud-elem-text = hsl(0, 0%, 100%)
+hud-elem-accent = hsl(195, 100%, 58%)
+hud-elem-tick-major = hsl(0, 0%, 92%)
+hud-elem-tick-minor = hsla(0, 0%, 80%, 0.75)
