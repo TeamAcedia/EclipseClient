@@ -43,6 +43,9 @@ bool GetSettingRestrictedValue(const std::string &setting_id)
     if (CheckSettingRestricted(setting_id))
         return false;
 
+    if (!g_settings->exists(setting_id))
+        return false;
+
     return g_settings->getBool(setting_id);
 }
 
