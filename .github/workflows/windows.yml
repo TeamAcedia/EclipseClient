@@ -73,7 +73,7 @@ jobs:
            ./util/buildbot/buildwin${{ matrix.config.bits }}.sh B -DRUN_IN_PLACE=0
            dest=$(mktemp -d)
            unzip -q -d "$dest" B/build/*.zip
-           cd "$dest"/luanti-*-nsis
+           cd "$dest"/eclipse-*-nsis
            makensis -WX -V3 sfx-launcher.nsi
            cp -v "$dest"/*.exe $GITHUB_WORKSPACE/artifact/
         if: ${{ matrix.config.nsis }}
