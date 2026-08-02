@@ -96,6 +96,9 @@ jobs:
     runs-on: windows-2025
     env:
       VCPKG_DEFAULT_TRIPLET: ${{matrix.config.vcpkg_triplet}}
+      # CMake 4.x validates CMAKE_POLICY_VERSION_MINIMUM requires major.minor format.
+      # Set it explicitly so any runner env var with value "3" (major-only) is overridden.
+      CMAKE_POLICY_VERSION_MINIMUM: '3.5'
     strategy:
       fail-fast: false
       matrix:
