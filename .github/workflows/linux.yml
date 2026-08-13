@@ -98,8 +98,8 @@ jobs:
       - name: Install deps
         run: |
           source ./util/ci/common.sh
-          install_linux_deps clang-11 xvfb
-
+          install_linux_deps clang-11 xvfb libdbus-1-dev
+      
       - name: Build
         run: |
           ./util/ci/build.sh
@@ -125,7 +125,7 @@ jobs:
       - name: Install deps
         run: |
           source ./util/ci/common.sh
-          install_linux_deps clang-20 lldb xvfb
+          install_linux_deps clang-20 lldb xvfb libdbus-1-dev
 
       - name: Build
         run: |
@@ -156,7 +156,10 @@ jobs:
         run: |
           source ./util/ci/common.sh
           install_linux_deps --headless clang libluajit-5.1-dev
-
+      - name: Install deps
+        run: |
+         source ./util/ci/common.sh
+         install_linux_deps g++-14 libluajit-5.1-dev libdbus-1-dev
       - name: Build prometheus-cpp
         run: ./util/ci/build_prometheus_cpp.sh
 
