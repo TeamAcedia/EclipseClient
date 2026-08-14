@@ -337,6 +337,13 @@ core.mod_categories = {
                     icon = "eclipse_icon_placeholder.png",
                     setting_id = "eclipse_hud_compass",
                     default = false
+                },
+                {
+                    name = "Now Playing",
+                    description = "Display currently playing music as a movable HUD widget",
+                    icon = "eclipse_icon_placeholder.png",
+                    setting_id = "eclipse_hud_nowplaying",
+                    default = false
                 }
         }
     }

@@ -215,8 +215,8 @@ public:
 			return false;
 
 		const NowPlayingInfo &info = m_provider.poll();
-		if (!info.active)
-			return false; // Nothing playing right now -- don't reserve screen space for an empty panel.
+		//if (!info.active)
+		//	return false; // Nothing playing right now -- don't reserve screen space for an empty panel.
 
 		f32 scale_x = std::clamp(g_settings->getFloat(m_scale_x_key), HUD_ELEM_MIN_SCALE, HUD_ELEM_MAX_SCALE);
 		f32 scale_y = std::clamp(g_settings->getFloat(m_scale_y_key), HUD_ELEM_MIN_SCALE, HUD_ELEM_MAX_SCALE);
