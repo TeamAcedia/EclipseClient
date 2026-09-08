@@ -16,6 +16,7 @@
 
 #include "client/client.h"
 #include "client/fontengine.h"
+#include "client/nowplaying.h"
 #include "settings.h"
 #include "util/string.h"
 
@@ -203,6 +204,77 @@ public:
 	}
 };
 
+class NowPlayingHudElement final : public HudElementBase
+{
+public:
+	NowPlayingHudElement() : HudElementBase("NowPlaying", "eclipse_hud_nowplaying", "eclipse_hud_nowplaying", 0.02f, 0.30f) {}
+
+	bool render(const HudElementRenderContext &ctx) override
+	{
+		if (!ctx.driver || !ctx.font || !ctx.theme)
+			return false;
+
+		const NowPlayingInfo &info = m_provider.poll();
+		//if (!info.active)
+		//	return false; // Nothing playing right now -- don't reserve screen space for an empty panel.
+
+		f32 scale_x = std::clamp(g_settings->getFloat(m_scale_x_key), HUD_ELEM_MIN_SCALE, HUD_ELEM_MAX_SCALE);
+		f32 scale_y = std::clamp(g_settings->getFloat(m_scale_y_key), HUD_ELEM_MIN_SCALE, HUD_ELEM_MAX_SCALE);
+		s32 width = std::max<s32>(180, static_cast<s32>(std::round(280.0f * scale_x)));
+		s32 height = std::max<s32>(48,
+			static_cast<s32>(std::round((info.has_progress ? 74.0f : 56.0f) * scale_y)));
+		Frame frame = layoutFrame(ctx.screensize, width, height);
+		drawPanel(ctx.driver, *ctx.theme, frame);
+		gui::IGUIFont *draw_font = get_scaled_hud_font(ctx.font, frame.scale_uniform);
+
+		s32 pad = std::max<s32>(6, static_cast<s32>(std::round(8.0f * frame.scale_uniform)));
+		s32 line_h = draw_font->getDimension(L"Ay").Height;
+
+		std::string title = info.title.empty() ? "Unknown title" : info.title;
+		std::string artist = info.artist.empty() ? "Unknown artist" : info.artist;
+
+		core::rect<s32> title_rect(
+			frame.rect.UpperLeftCorner.X + pad, frame.rect.UpperLeftCorner.Y + pad,
+			frame.rect.LowerRightCorner.X - pad, frame.rect.UpperLeftCorner.Y + pad + line_h);
+		draw_font->draw(utf8_to_wide(title).c_str(), title_rect, ctx.theme->hud_elem_text, false, true, nullptr);
+
+		core::rect<s32> artist_rect(
+			frame.rect.UpperLeftCorner.X + pad, title_rect.LowerRightCorner.Y,
+			frame.rect.LowerRightCorner.X - pad, title_rect.LowerRightCorner.Y + line_h);
+		draw_font->draw(utf8_to_wide(artist).c_str(), artist_rect, ctx.theme->text_muted, false, true, nullptr);
+
+		// Position, only when the backend actually provides it (Windows
+		// SMTC and macOS -- see NowPlayingInfo in src/client/nowplaying.h).
+		if (info.has_progress && info.duration_seconds > 0) {
+			s32 bar_h = std::max<s32>(3, static_cast<s32>(std::round(4.0f * frame.scale_uniform)));
+			s32 bar_y = frame.rect.LowerRightCorner.Y - pad - bar_h;
+			core::rect<s32> bar_bg(
+				frame.rect.UpperLeftCorner.X + pad, bar_y,
+				frame.rect.LowerRightCorner.X - pad, bar_y + bar_h);
+			ctx.driver->draw2DRectangle(ctx.theme->hud_elem_tick_minor, bar_bg, nullptr);
+
+			f32 t = std::clamp(
+				static_cast<f32>(info.position_seconds) / static_cast<f32>(info.duration_seconds),
+				0.0f, 1.0f);
+			s32 fill_w = static_cast<s32>(std::round(bar_bg.getWidth() * t));
+			core::rect<s32> bar_fill(
+				bar_bg.UpperLeftCorner.X, bar_bg.UpperLeftCorner.Y,
+				bar_bg.UpperLeftCorner.X + fill_w, bar_bg.LowerRightCorner.Y);
+			ctx.driver->draw2DRectangle(ctx.theme->hud_elem_accent, bar_fill, nullptr);
+		}
+
+		return true;
+	}
+
+private:
+	// One provider per element instance, matching how the element itself
+	// is a long-lived singleton owned by Hud (see
+	// create_default_hud_elements() below) -- NowPlayingProvider's own
+	// internal throttling (see POLL_INTERVAL_MS in nowplaying.cpp) means
+	// render() being called every frame is cheap regardless.
+	NowPlayingProvider m_provider;
+};
+
 } // namespace
 
 HudElementBase::HudElementBase(std::string label, std::string enabled_key, std::string setting_prefix,
@@ -304,6 +376,7 @@ std::vector<std::unique_ptr<HudElementBase>> create_default_hud_elements()
 	elements.emplace_back(std::make_unique<MemoryHudElement>());
 	elements.emplace_back(std::make_unique<PingHudElement>());
 	elements.emplace_back(std::make_unique<CompassHudElement>());
+	elements.emplace_back(std::make_unique<NowPlayingHudElement>());
 
 	for (auto &element : elements)
 		element->ensureDefaults();

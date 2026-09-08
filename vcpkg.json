@@ -19,12 +19,20 @@
     "luajit",
     "gmp",
     "jsoncpp",
-    {
-      "name": "gettext",
-      "features": [
+{
+    "name": "cppwinrt",
+    "platform": "windows"
+},
+{
+    "name": "dbus",
+    "platform": "linux"
+},
+{
+    "name": "gettext",
+    "features": [
         "tools"
-      ]
-    },
-    "sdl2"
+    ]
+},
+"sdl2"
   ]
 }

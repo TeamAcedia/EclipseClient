@@ -67,16 +67,22 @@ jobs:
           cd "$dest"/eclipse-*-win*
           wine bin/eclipse.exe --version
 
-      - name: Build for NSIS
-        run: |
+      - name: Build for NSIS 
+        run: | 
            EXISTING_MINETEST_DIR=$PWD \
-           ./util/buildbot/buildwin${{ matrix.config.bits }}.sh B -DRUN_IN_PLACE=0
-           dest=$(mktemp -d)
-           unzip -q -d "$dest" B/build/*.zip
-           cd "$dest"/eclipse-*-nsis
-           makensis -WX -V3 sfx-launcher.nsi
-           cp -v "$dest"/*.exe $GITHUB_WORKSPACE/artifact/
-        if: ${{ matrix.config.nsis }}
+           ./util/buildbot/buildwin${{ matrix.config.bits }}.sh B -DRUN_IN_PLACE=0 
+           dest=$(mktemp -d) 
+           unzip -q -d "$dest" B/build/*.zip 
+
+           echo "=== NSIS archive contents ==="
+           unzip -l B/build/*.zip
+           echo "=== Extracted files ==="
+           find "$dest" -maxdepth 3 -type f | sort
+
+           cd "$dest"/eclipse-*-nsis 
+           makensis -WX -V3 sfx-launcher.nsi 
+           cp -v "$dest"/*.exe $GITHUB_WORKSPACE/artifact/ 
+        if: ${{ matrix.config.nsis }} 
 
       - uses: actions/upload-artifact@v5
         with:
